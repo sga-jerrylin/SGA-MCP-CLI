@@ -11,5 +11,7 @@
   "start_dir": "E:\\mcp",
   "active": true,
   "started_at": "2026-02-16 21:10:43",
-  "start_cmd": "Set-Location -Path 'E:\\mcp'; gemini --resume latest; $code = $LASTEXITCODE; Write-Host \"`n[gemini] exited with code $code. Press Enter to close...\"; Read-Host; exit $code"
+  "start_cmd": "Set-Location -Path 'E:\\mcp'; gemini --resume latest; $code = $LASTEXITCODE; Write-Host \"`n[gemini] exited with code $code. Press Enter to close...\"; Read-Host; exit $code",
+  "gemini_session_path": "C:\\Users\\Administrator\\.gemini\\tmp\\83c5bb1727c274d6487919c87f511597f5fd3e2a185c03d5b95f9e11c8817051\\chats\\session-2026-02-15T13-25-e06eea64.json",
+  "gemini_project_hash": "83c5bb1727c274d6487919c87f511597f5fd3e2a185c03d5b95f9e11c8817051"
 }

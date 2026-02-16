@@ -15,7 +15,6 @@ import type {
   ApiKey,
   SseLogEvent,
   SseProgressEvent,
-  SseStepChangeEvent,
   SseDoneEvent
 } from '@mcp-claw/shared';
 
@@ -159,12 +158,7 @@ export const handlers = [
     } as ApiResponse<GenerateRun>);
   }),
 
-  // SSE Mock (Simulated via regular GET for simplicity in MSW v1/v2 browser polyfills often needs custom handling, 
-  // but here we define standard http.get. Note: MSW handling of streams can be tricky in browser. 
-  // For development, we might mock the EventSource object directly in client code or use a stream response if supported.)
-  // Here we return a stream if possible, or just 200 OK. 
-  // For simplicity in this text block, we'll assume the client connects to this URL.
-  // Note: True SSE mocking in MSW often requires `HttpResponse.text(stream)`.
+  // SSE Mock
   http.get('/api/generator/projects/:id/events', async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -184,20 +178,14 @@ export const handlers = [
             message: `Step ${step}: Processing...`,
             timestamp: new Date().toISOString()
           };
-          send(`event: log
-data: ${JSON.stringify(log)}
-
-`);
+          send(`event: log\ndata: ${JSON.stringify(log)}\n\n`);
 
           const progress: SseProgressEvent = {
             type: 'progress',
             percent: step * 10,
             stage: step < 3 ? 'parsing' : 'generating'
           };
-          send(`event: progress
-data: ${JSON.stringify(progress)}
-
-`);
+          send(`event: progress\ndata: ${JSON.stringify(progress)}\n\n`);
         }
 
         const done: SseDoneEvent = {
@@ -205,10 +193,7 @@ data: ${JSON.stringify(progress)}
           projectId: 'p_001',
           artifactCount: 3
         };
-        send(`event: done
-data: ${JSON.stringify(done)}
-
-`);
+        send(`event: done\ndata: ${JSON.stringify(done)}\n\n`);
         controller.close();
       }
     });
@@ -239,10 +224,7 @@ data: ${JSON.stringify(done)}
       code: 0,
       message: 'ok',
       data: {
-        composeYaml: 'version: "3.8"
-services:
-  mcp-server-1:
-    image: mcp/server...',
+        composeYaml: 'version: "3.8"\nservices:\n  mcp-server-1:\n    image: mcp/server...',
         nginxConf: 'server { listen 80; ... }',
         servers: [
           { serverId: 's1', name: 'ERP Server', port: 8081, toolCount: 12 }
