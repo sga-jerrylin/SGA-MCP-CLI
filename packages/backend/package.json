@@ -1,0 +1,17 @@
+{
+  "name": "@mcp-claw/backend",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main.js",
+  "types": "dist/main.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test",
+    "test:contract": "node --test test/contract/*.spec.ts"
+  },
+  "dependencies": {
+    "@mcp-claw/core": "workspace:*",
+    "@mcp-claw/shared": "workspace:*"
+  }
+}

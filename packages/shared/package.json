@@ -1,0 +1,22 @@
+{
+  "name": "@mcp-claw/shared",
+  "version": "0.1.0",
+  "main": "dist/types/api.js",
+  "types": "dist/types/api.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/api.d.ts",
+      "default": "./dist/types/api.js"
+    },
+    "./api-contract.yaml": "./api-contract.yaml"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test"
+  },
+  "files": [
+    "dist",
+    "api-contract.yaml"
+  ]
+}
