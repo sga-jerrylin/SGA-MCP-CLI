@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test",
-    "test:contract": "node --test test/contract/*.spec.ts"
+    "test:contract": "node --experimental-strip-types test/contract/contract-runner.ts"
   },
   "dependencies": {
     "@mcp-claw/core": "workspace:*",
