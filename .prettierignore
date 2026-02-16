@@ -1,0 +1,6 @@
+dist
+node_modules
+.docusaurus
+public
+coverage
+pnpm-lock.yaml

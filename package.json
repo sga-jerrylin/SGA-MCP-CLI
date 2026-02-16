@@ -4,10 +4,33 @@
   "private": true,
   "packageManager": "pnpm@10.5.2",
   "scripts": {
-    "lint": "pnpm -r lint",
-    "format": "pnpm -r format",
+    "prepare": "husky install",
+    "lint": "eslint . --ext .vue,.js,.ts,.cjs,.mjs --fix",
+    "format": "prettier --write \"**/*.{js,ts,vue,css,md,json}\"",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "contract:test": "pnpm -C packages/backend test:contract"
+    "contract:lint": "spectral lint packages/shared/api-contract.yaml"
+  },
+  "lint-staged": {
+    "*.{js,ts,vue}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@stoplight/spectral-cli": "^6.15.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-vue": "^10.8.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "vue-eslint-parser": "^10.4.0"
   }
 }

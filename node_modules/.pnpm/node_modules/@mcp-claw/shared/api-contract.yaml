@@ -1,0 +1,961 @@
+openapi: 3.0.3
+info:
+  title: MCP Claw / Hub API Contract
+  version: 0.1.0
+  description: |
+    前后端唯一真相源。
+    - Codex 按此契约实现后端 API
+    - Gemini 按此契约实现前端调用 + Mock Server
+    - Claude 负责契约变更审批
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development
+
+tags:
+  - name: auth
+    description: 认证
+  - name: generator
+    description: MCP 生成器
+  - name: runtime
+    description: MCP Server 运行时
+  - name: repository
+    description: 配置仓库
+  - name: deploy
+    description: 部署编排
+  - name: admin
+    description: 管理后台
+  - name: monitor
+    description: 监控
+  - name: sync
+    description: CLI ↔ Hub 同步
+
+# ─────────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────────
+paths:
+
+  # ── Auth ──────────────────────────────────
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: 用户登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                code: 0
+                message: ok
+                data:
+                  token: "eyJhbGciOi..."
+                  user:
+                    id: "u_001"
+                    username: admin
+                    role: admin
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: 获取当前用户信息
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: 用户信息
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+
+  # ── Generator ─────────────────────────────
+  /generator/projects:
+    get:
+      tags: [generator]
+      summary: 获取生成项目列表
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: 项目列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PaginatedList'
+
+    post:
+      tags: [generator]
+      summary: 创建生成项目（上传文档）
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, document]
+              properties:
+                name:
+                  type: string
+                  description: 项目名称
+                description:
+                  type: string
+                document:
+                  type: string
+                  format: binary
+                  description: API文档（Markdown/OpenAPI YAML/JSON）
+                docType:
+                  type: string
+                  enum: [markdown, openapi, auto]
+                  default: auto
+      responses:
+        '201':
+          description: 项目创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Project'
+
+  /generator/projects/{projectId}:
+    get:
+      tags: [generator]
+      summary: 获取项目详情
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: 项目详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/ProjectDetail'
+
+  /generator/projects/{projectId}/start:
+    post:
+      tags: [generator]
+      summary: 开始生成
+      description: 触发AI生成流水线（文档解析→IR→代码生成→沙箱测试→自动修复）
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parserModel:
+                  type: string
+                  default: claude-3-haiku
+                coderModel:
+                  type: string
+                  default: claude-3-5-sonnet
+                maxFixRounds:
+                  type: integer
+                  default: 3
+                  maximum: 5
+      responses:
+        '202':
+          description: 生成任务已入队
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/GenerateRun'
+
+  /generator/projects/{projectId}/events:
+    get:
+      tags: [generator]
+      summary: SSE 实时事件流
+      description: |
+        Server-Sent Events 流，推送生成过程的实时日志和进度。
+        Event types: log, progress, step_change, done, error
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: SSE事件流
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                event: log
+                data: {"level":"info","message":"开始解析文档...","timestamp":"2026-02-17T10:00:00Z"}
+
+                event: progress
+                data: {"percent":25,"stage":"parsing"}
+
+                event: step_change
+                data: {"step":1,"name":"代码生成","status":"running"}
+
+                event: done
+                data: {"projectId":"p_001","artifactCount":3}
+
+  /generator/projects/{projectId}/artifacts:
+    get:
+      tags: [generator]
+      summary: 获取生成产物列表
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: 产物列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Artifact'
+
+  # ── Runtime (MCP Servers) ─────────────────
+  /runtime/servers:
+    get:
+      tags: [runtime]
+      summary: 获取MCP Server列表（目录服务）
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: Server列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/McpServer'
+
+  /runtime/servers/{serverId}:
+    get:
+      tags: [runtime]
+      summary: 获取单个MCP Server详情
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/serverId'
+      responses:
+        '200':
+          description: Server详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/McpServerDetail'
+
+  /runtime/servers/{serverId}/tools:
+    get:
+      tags: [runtime]
+      summary: 获取Server的工具列表
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/serverId'
+      responses:
+        '200':
+          description: 工具列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          tools:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/McpTool'
+                          tokenUsage:
+                            type: integer
+                            description: tools/list序列化后的token数
+                          tokenBudget:
+                            type: integer
+                            default: 8000
+
+  # ── Deploy ────────────────────────────────
+  /deploy/preview:
+    post:
+      tags: [deploy]
+      summary: 预览部署配置（生成docker-compose.yml）
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [serverIds]
+              properties:
+                serverIds:
+                  type: array
+                  items: { type: string }
+                  description: 要部署的Server ID列表
+      responses:
+        '200':
+          description: 部署预览
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/DeployPreview'
+
+  /deploy/execute:
+    post:
+      tags: [deploy]
+      summary: 执行部署
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [serverIds]
+              properties:
+                serverIds:
+                  type: array
+                  items: { type: string }
+                composeOverride:
+                  type: string
+                  description: 用户修改后的docker-compose.yml内容（可选）
+      responses:
+        '202':
+          description: 部署任务已启动
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/DeployTask'
+
+  # ── Repository ────────────────────────────
+  /repo/packages:
+    get:
+      tags: [repository]
+      summary: 获取配置包列表
+      parameters:
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: 配置包列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PaginatedList'
+
+  /repo/packages/{packageId}:
+    get:
+      tags: [repository]
+      summary: 获取配置包详情
+      parameters:
+        - name: packageId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 配置包详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Package'
+
+  /repo/packages/{packageId}/install:
+    post:
+      tags: [repository]
+      summary: 安装配置包
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: packageId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 安装成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # ── Sync (CLI ↔ Hub) ─────────────────────
+  /sync/push:
+    post:
+      tags: [sync]
+      summary: CLI推送配置包到Hub
+      description: |
+        CLI生成完MCP Server后，推送到Hub进行注册和管理。
+        Hub验证签名→存储到MinIO→注册元数据→可选自动部署
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [package, manifest, signature]
+              properties:
+                package:
+                  type: string
+                  format: binary
+                  description: 配置包tar.gz
+                manifest:
+                  type: string
+                  format: binary
+                  description: manifest.json
+                signature:
+                  type: string
+                  description: RSA-SHA256签名（hex）
+                autoDeploy:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: 推送成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          packageId: { type: string }
+                          servers:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                serverId: { type: string }
+                                name: { type: string }
+                                toolCount: { type: integer }
+                          deployed: { type: boolean }
+
+  /sync/pull/{packageId}:
+    get:
+      tags: [sync]
+      summary: CLI从Hub拉取配置包
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: packageId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 配置包下载
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  # ── Admin ─────────────────────────────────
+  /admin/tenants:
+    get:
+      tags: [admin]
+      summary: 租户列表
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: 租户列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Tenant'
+
+    post:
+      tags: [admin]
+      summary: 创建租户
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenant'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Tenant'
+
+  /admin/tenants/{tenantId}/keys:
+    get:
+      tags: [admin]
+      summary: 租户API Key列表
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Key列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ApiKey'
+
+    post:
+      tags: [admin]
+      summary: 生成新API Key
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                expiresIn: { type: string, default: "90d" }
+      responses:
+        '201':
+          description: Key创建成功（仅此次返回完整Key）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: string }
+                          name: { type: string }
+                          key: { type: string, description: "完整Key，仅此次可见" }
+                          prefix: { type: string }
+                          expiresAt: { type: string, format: date-time }
+
+  # ── Monitor ───────────────────────────────
+  /monitor/metrics:
+    get:
+      tags: [monitor]
+      summary: 获取监控指标
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: range
+          in: query
+          schema:
+            type: string
+            enum: [1h, 6h, 24h, 7d]
+            default: 24h
+      responses:
+        '200':
+          description: 监控数据
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Metrics'
+
+  /monitor/audit-logs:
+    get:
+      tags: [monitor]
+      summary: 审计日志
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: userId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: 审计日志列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PaginatedList'
+
+  # ── Health ────────────────────────────────
+  /health:
+    get:
+      tags: [runtime]
+      summary: 健康检查
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok] }
+                  timestamp: { type: string, format: date-time }
+                  version: { type: string }
+
+# ─────────────────────────────────────────────
+# Components
+# ─────────────────────────────────────────────
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    projectId:
+      name: projectId
+      in: path
+      required: true
+      schema: { type: string }
+    serverId:
+      name: serverId
+      in: path
+      required: true
+      schema: { type: string }
+
+  schemas:
+
+    # ── Common ──────────────────────────────
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 0=成功，非0=业务错误
+        message:
+          type: string
+        data: {}
+
+    PaginatedList:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    # ── Auth ────────────────────────────────
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        username: { type: string }
+        role: { type: string, enum: [admin, user] }
+        avatar: { type: string }
+        tenantId: { type: string }
+
+    # ── Generator ───────────────────────────
+    Project:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        status:
+          type: string
+          enum: [pending, parsing, generating, testing, fixing, done, failed]
+        docType: { type: string, enum: [markdown, openapi] }
+        toolCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ProjectDetail:
+      allOf:
+        - $ref: '#/components/schemas/Project'
+        - type: object
+          properties:
+            runs:
+              type: array
+              items:
+                $ref: '#/components/schemas/GenerateRun'
+            artifacts:
+              type: array
+              items:
+                $ref: '#/components/schemas/Artifact'
+
+    GenerateRun:
+      type: object
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        parserModel: { type: string }
+        coderModel: { type: string }
+        fixRounds: { type: integer }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+
+    Artifact:
+      type: object
+      properties:
+        id: { type: string }
+        runId: { type: string }
+        type:
+          type: string
+          enum: [connector, test, config, package]
+        fileName: { type: string }
+        size: { type: integer }
+        createdAt: { type: string, format: date-time }
+
+    # ── Runtime ─────────────────────────────
+    McpServer:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        shardIndex: { type: integer }
+        status:
+          type: string
+          enum: [healthy, degraded, stopped, deploying]
+        toolCount: { type: integer }
+        tokenUsage: { type: integer }
+        tokenBudget: { type: integer, default: 8000 }
+        endpoint: { type: string }
+        port: { type: integer }
+        createdAt: { type: string, format: date-time }
+
+    McpServerDetail:
+      allOf:
+        - $ref: '#/components/schemas/McpServer'
+        - type: object
+          properties:
+            tools:
+              type: array
+              items:
+                $ref: '#/components/schemas/McpTool'
+            metrics:
+              type: object
+              properties:
+                qps: { type: number }
+                p95Latency: { type: number }
+                errorRate: { type: number }
+
+    McpTool:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        inputSchema: { type: object }
+        estimatedTokens: { type: integer }
+
+    # ── Deploy ──────────────────────────────
+    DeployPreview:
+      type: object
+      properties:
+        composeYaml: { type: string, description: 生成的docker-compose.yml内容 }
+        nginxConf: { type: string, description: 生成的nginx.conf内容 }
+        servers:
+          type: array
+          items:
+            type: object
+            properties:
+              serverId: { type: string }
+              name: { type: string }
+              port: { type: integer }
+              toolCount: { type: integer }
+
+    DeployTask:
+      type: object
+      properties:
+        id: { type: string }
+        status:
+          type: string
+          enum: [pending, pulling, starting, verifying, done, failed]
+        serverIds:
+          type: array
+          items: { type: string }
+        startedAt: { type: string, format: date-time }
+
+    # ── Repository ──────────────────────────
+    Package:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        version: { type: string }
+        description: { type: string }
+        category: { type: string }
+        toolCount: { type: integer }
+        serverCount: { type: integer }
+        sha256: { type: string }
+        signature: { type: string }
+        signed: { type: boolean }
+        downloads: { type: integer }
+        publishedAt: { type: string, format: date-time }
+
+    # ── Admin ───────────────────────────────
+    Tenant:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        contact: { type: string }
+        status: { type: string, enum: [active, disabled] }
+        createdAt: { type: string, format: date-time }
+
+    CreateTenant:
+      type: object
+      required: [name, contact]
+      properties:
+        name: { type: string }
+        contact: { type: string }
+        domain: { type: string }
+
+    ApiKey:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        prefix: { type: string, description: "Key前缀（如sk-mcp-xxxx）" }
+        expiresAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+        status: { type: string, enum: [active, revoked, expired] }
+
+    # ── Monitor ─────────────────────────────
+    Metrics:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            totalServers: { type: integer }
+            activeServers: { type: integer }
+            totalTools: { type: integer }
+            totalRequests: { type: integer }
+        qps:
+          type: array
+          description: 时间序列数据
+          items:
+            type: object
+            properties:
+              timestamp: { type: string, format: date-time }
+              value: { type: number }
+        latency:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp: { type: string, format: date-time }
+              p50: { type: number }
+              p95: { type: number }
+              p99: { type: number }
+        memory:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp: { type: string, format: date-time }
+              usedMb: { type: number }
+              totalMb: { type: number }

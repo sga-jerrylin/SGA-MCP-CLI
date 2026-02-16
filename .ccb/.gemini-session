@@ -1,0 +1,15 @@
+{
+  "session_id": "ai-1771247442-6404",
+  "ccb_project_id": "27e65b0c783f1e1b79f2ae87956ab91019a7aca3a8c3713a44d10a3fe61f7003",
+  "runtime_dir": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\claude-ai-Administrator\\ai-1771247442-6404\\gemini",
+  "terminal": "wezterm",
+  "tmux_session": null,
+  "pane_id": "2",
+  "pane_title_marker": "CCB-Gemini",
+  "work_dir": "E:\\mcp",
+  "work_dir_norm": "e:/mcp",
+  "start_dir": "E:\\mcp",
+  "active": true,
+  "started_at": "2026-02-16 21:10:43",
+  "start_cmd": "Set-Location -Path 'E:\\mcp'; gemini --resume latest; $code = $LASTEXITCODE; Write-Host \"`n[gemini] exited with code $code. Press Enter to close...\"; Read-Host; exit $code"
+}

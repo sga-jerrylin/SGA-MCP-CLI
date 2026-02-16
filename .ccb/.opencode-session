@@ -1,0 +1,17 @@
+{
+  "session_id": "ai-1771144766-12372",
+  "ccb_session_id": "ai-1771144766-12372",
+  "ccb_project_id": "27e65b0c783f1e1b79f2ae87956ab91019a7aca3a8c3713a44d10a3fe61f7003",
+  "runtime_dir": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\claude-ai-Administrator\\ai-1771144766-12372\\opencode",
+  "terminal": "wezterm",
+  "tmux_session": null,
+  "pane_id": "1",
+  "pane_title_marker": "CCB-Opencode",
+  "work_dir": "E:\\mcp",
+  "work_dir_norm": "e:/mcp",
+  "start_dir": "E:\\mcp",
+  "active": false,
+  "started_at": "2026-02-15 16:39:27",
+  "start_cmd": "opencode; $code = $LASTEXITCODE; Write-Host \"`n[opencode] exited with code $code. Press Enter to close...\"; Read-Host; exit $code",
+  "ended_at": "2026-02-16 01:07:23"
+}

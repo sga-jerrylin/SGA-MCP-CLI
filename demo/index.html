@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Hub - 企业级工具交付平台</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- 图标库与字体 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 左侧极简导航 -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <i class="fa-solid fa-network-wired"></i>
+                <span>MCP Hub</span>
+            </div>
+            
+            <nav class="main-nav">
+                <!-- 核心流水线 -->
+                <div class="nav-group-title">交付流水线</div>
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fa-solid fa-chart-network"></i> 
+                    <span>系统概览</span>
+                </a>
+                <a href="#" class="nav-item" data-page="sources">
+                    <i class="fa-solid fa-plug"></i> 
+                    <span>1. 连接与鉴权</span>
+                </a>
+                <a href="#" class="nav-item" data-page="library">
+                    <i class="fa-solid fa-toolbox"></i> 
+                    <span>2. 工具库</span>
+                </a>
+                <a href="#" class="nav-item" data-page="deploy">
+                    <i class="fa-solid fa-rocket"></i> 
+                    <span>3. 部署发布</span>
+                </a>
+
+                <div class="nav-group-title" style="margin-top: 20px;">运维治理</div>
+                <a href="#" class="nav-item" data-page="monitor">
+                    <i class="fa-solid fa-heart-pulse"></i> 
+                    <span>运行监控</span>
+                </a>
+                <a href="#" class="nav-item" data-page="audit">
+                    <i class="fa-solid fa-file-shield"></i> 
+                    <span>审计日志</span>
+                </a>
+            </nav>
+
+            <div class="tenant-info">
+                <div class="tenant-badge">当前租户</div>
+                <div class="tenant-name">Acme Corp (客户A)</div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 顶部状态栏 -->
+            <header class="top-bar">
+                <div class="breadcrumb">
+                    <span id="page-title">系统概览</span>
+                </div>
+                <div class="system-status">
+                    <span class="status-indicator online"></span>
+                    <span>MCP Runtime: <strong>运行中</strong></span>
+                    <span class="divider">|</span>
+                    <span>版本: v1.0.2</span>
+                </div>
+            </header>
+
+            <!-- 页面内容容器 -->
+            <div id="page-container">
+                <!-- 1. Dashboard: 拓扑图视图 -->
+                <div class="page-view active" id="view-dashboard">
+                    <div class="topology-container">
+                        <!-- 左：源系统 (Scrollable) -->
+                        <div class="topo-node source-group">
+                            <div class="node-title">上游业务系统 <span class="count-badge">8</span></div>
+                            <div class="node-list-container">
+                                <div class="node-card active">
+                                    <i class="fa-solid fa-server"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">金蝶 Cloud</div>
+                                        <div class="n-meta">Prod / HMAC</div>
+                                    </div>
+                                    <span class="status-dot green"></span>
+                                </div>
+                                <div class="node-card inactive">
+                                    <i class="fa-solid fa-server"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">用友 U8</div>
+                                        <div class="n-meta">Dev / APIKey</div>
+                                    </div>
+                                    <span class="status-dot gray"></span>
+                                </div>
+                                <!-- 模拟更多节点 -->
+                                <div class="node-card active">
+                                    <i class="fa-solid fa-database"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">Oracle EBS</div>
+                                        <div class="n-meta">Prod / OAuth2</div>
+                                    </div>
+                                    <span class="status-dot green"></span>
+                                </div>
+                                <div class="node-card active">
+                                    <i class="fa-solid fa-cart-shopping"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">Shopify</div>
+                                        <div class="n-meta">Global / OAuth2</div>
+                                    </div>
+                                    <span class="status-dot green"></span>
+                                </div>
+                                <div class="node-card inactive">
+                                    <i class="fa-solid fa-cube"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">SAP Hana</div>
+                                        <div class="n-meta">Maint / Basic</div>
+                                    </div>
+                                    <span class="status-dot gray"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 连接线 -->
+                        <div class="topo-line">
+                            <i class="fa-solid fa-arrow-right flow-anim"></i>
+                        </div>
+
+                        <!-- 中：MCP Hub -->
+                        <div class="topo-node hub-group">
+                            <div class="node-title">MCP Hub (本机)</div>
+                            <div class="hub-core">
+                                <div class="core-circle">
+                                    <i class="fa-solid fa-gears"></i>
+                                    <div>Runtime</div>
+                                </div>
+                                <!-- 模拟大量分片的视觉效果 -->
+                                <div class="orbit-ring"></div>
+                                <div class="orbit-dot d1"></div>
+                                <div class="orbit-dot d2"></div>
+                                <div class="orbit-dot d3"></div>
+                                <div class="hub-stat">
+                                    <span class="num">12</span>
+                                    <span class="txt">Shards</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 连接线 -->
+                        <div class="topo-line">
+                            <i class="fa-solid fa-arrow-right flow-anim"></i>
+                        </div>
+
+                        <!-- 右：Agent (Scrollable) -->
+                        <div class="topo-node agent-group">
+                            <div class="node-title">下游 Agent <span class="count-badge">15</span></div>
+                            <div class="node-list-container">
+                                <div class="node-card active">
+                                    <i class="fa-solid fa-robot"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">OpenClaw</div>
+                                        <div class="n-meta">HR Bot</div>
+                                    </div>
+                                    <div class="last-active">2s ago</div>
+                                </div>
+                                <div class="node-card active">
+                                    <i class="fa-solid fa-robot"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">Dify App</div>
+                                        <div class="n-meta">Finance Asst</div>
+                                    </div>
+                                    <div class="last-active">5m ago</div>
+                                </div>
+                                <div class="node-card active">
+                                    <i class="fa-solid fa-comments"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">DingTalk</div>
+                                        <div class="n-meta">Group Chat</div>
+                                    </div>
+                                    <div class="last-active">1h ago</div>
+                                </div>
+                                <div class="node-card inactive">
+                                    <i class="fa-solid fa-robot"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">Test Agent</div>
+                                        <div class="n-meta">Sandbox</div>
+                                    </div>
+                                    <div class="last-active">2d ago</div>
+                                </div>
+                                <div class="node-card active">
+                                    <i class="fa-solid fa-bolt"></i>
+                                    <div class="node-info">
+                                        <div class="n-name">Zapier</div>
+                                        <div class="n-meta">Workflow</div>
+                                    </div>
+                                    <div class="last-active">10s ago</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="quick-stats">
+                        <div class="stat-card">
+                            <div class="stat-num">42</div>
+                            <div class="stat-label">已发布工具</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-num">99.9%</div>
+                            <div class="stat-label">今日成功率</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-num">12ms</div>
+                            <div class="stat-label">平均耗时</div>
+                        </div>
+                    </div>
+
+                    <!-- 新增：仪表盘下半部分 -->
+                    <div class="dashboard-grid">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h4>24h 调用量趋势</h4>
+                                <div class="chart-legend">
+                                    <span class="dot primary"></span> Total
+                                    <span class="dot success"></span> Success
+                                </div>
+                            </div>
+                            <div class="chart-body" id="chart-trend">
+                                <!-- CSS 模拟柱状图 -->
+                                <div class="bar-chart">
+                                    <div class="bar" style="height: 40%"></div>
+                                    <div class="bar" style="height: 60%"></div>
+                                    <div class="bar" style="height: 85%"></div>
+                                    <div class="bar" style="height: 50%"></div>
+                                    <div class="bar" style="height: 70%"></div>
+                                    <div class="bar" style="height: 90%"></div>
+                                    <div class="bar" style="height: 65%"></div>
+                                    <div class="bar" style="height: 45%"></div>
+                                    <div class="bar" style="height: 80%"></div>
+                                    <div class="bar" style="height: 95%"></div>
+                                    <div class="bar" style="height: 60%"></div>
+                                    <div class="bar" style="height: 75%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h4>Top 5 热门工具</h4>
+                            </div>
+                            <div class="chart-body list-view">
+                                <div class="list-item">
+                                    <span class="rank">1</span>
+                                    <span class="name">scm_getStock</span>
+                                    <span class="val">12.5k</span>
+                                </div>
+                                <div class="list-item">
+                                    <span class="rank">2</span>
+                                    <span class="name">finance_getAccountBalance</span>
+                                    <span class="val">8.2k</span>
+                                </div>
+                                <div class="list-item">
+                                    <span class="rank">3</span>
+                                    <span class="name">hr_getEmployee</span>
+                                    <span class="val">5.1k</span>
+                                </div>
+                                <div class="list-item">
+                                    <span class="rank">4</span>
+                                    <span class="name">scm_createSalesOrder</span>
+                                    <span class="val">3.4k</span>
+                                </div>
+                                <div class="list-item">
+                                    <span class="rank">5</span>
+                                    <span class="name">finance_createVoucher</span>
+                                    <span class="val">1.2k</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h4>错误分布 (Last 1h)</h4>
+                            </div>
+                            <div class="chart-body pie-view">
+                                <div class="pie-chart">
+                                    <!-- CSS Conic Gradient Pie -->
+                                </div>
+                                <div class="pie-legend">
+                                    <div class="legend-item"><span class="dot warn"></span> Auth (15%)</div>
+                                    <div class="legend-item"><span class="dot error"></span> Timeout (5%)</div>
+                                    <div class="legend-item"><span class="dot primary"></span> Validation (80%)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Sources: 接入源 -->
+                <div class="page-view" id="view-sources">
+                    <div class="action-header">
+                        <h2>连接器与鉴权配置</h2>
+                        <button class="btn primary" id="btn-new-connection"><i class="fa-solid fa-plus"></i> 新建连接</button>
+                    </div>
+                    <div class="card-list">
+                        <div class="source-card">
+                            <div class="card-icon kingdee"><i class="fa-solid fa-building"></i></div>
+                            <div class="card-main">
+                                <h3>金蝶 Cloud (生产环境)</h3>
+                                <div class="card-meta">
+                                    <span><i class="fa-solid fa-link"></i> https://api.kingdee.com/v1</span>
+                                    <span><i class="fa-solid fa-key"></i> HMAC-SHA256</span>
+                                </div>
+                            </div>
+                            <div class="card-status success">
+                                <i class="fa-solid fa-check-circle"></i> 连通正常
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn icon-only" title="配置鉴权"><i class="fa-solid fa-key"></i></button>
+                                <button class="btn icon-only" title="编辑"><i class="fa-solid fa-pen"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Library: 工具库 (含生成器) -->
+                <div class="page-view" id="view-library">
+                    <div class="library-layout">
+                        <div class="lib-sidebar">
+                            <div class="sidebar-header">
+                                <span>业务分类 (Domain)</span>
+                                <button class="btn icon-only small" id="btn-add-category" title="新建分类"><i class="fa-solid fa-plus"></i></button>
+                            </div>
+                            <div class="category-list" id="category-list">
+                                <div class="lib-filter active" data-cat="all">全部工具 (42)</div>
+                                <div class="lib-filter" data-cat="finance">财务域 (15) <i class="fa-solid fa-ellipsis-vertical action-icon"></i></div>
+                                <div class="lib-filter" data-cat="scm">供应链域 (20) <i class="fa-solid fa-ellipsis-vertical action-icon"></i></div>
+                                <div class="lib-filter" data-cat="hr">HR域 (7) <i class="fa-solid fa-ellipsis-vertical action-icon"></i></div>
+                            </div>
+                            <button class="btn secondary full-width" id="btn-import-openapi" style="margin-top:20px;">
+                                <i class="fa-solid fa-file-import"></i> 导入 OpenAPI
+                            </button>
+                        </div>
+                        <div class="lib-content">
+                            <div class="tool-list-header">
+                                <input type="text" placeholder="搜索工具名称或描述..." class="search-input">
+                                <div class="filter-toggles">
+                                    <label><input type="checkbox" checked> 已发布</label>
+                                    <label><input type="checkbox" checked> 草稿</label>
+                                </div>
+                            </div>
+                            <div class="tool-table-wrapper">
+                                <table class="tool-table">
+                                    <thead>
+                                        <tr>
+                                            <th>状态</th>
+                                            <th>工具名称 (Tool Name)</th>
+                                            <th>中文业务名</th>
+                                            <th>所属域</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tool-list-body">
+                                        <!-- 动态生成 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Deploy: 部署发布 (核心交互) -->
+                <div class="page-view" id="view-deploy">
+                    <div class="deploy-container">
+                        <div class="deploy-status-card">
+                            <div class="status-header">
+                                <h3>当前环境状态</h3>
+                                <span class="tag success">Running</span>
+                            </div>
+                            <div class="config-diff">
+                                <div class="diff-item">
+                                    <span class="label">当前版本:</span>
+                                    <span class="value">v1.0.2 (2026-02-09 10:00)</span>
+                                </div>
+                                <div class="diff-item">
+                                    <span class="label">待发布变更:</span>
+                                    <span class="value highlight">3 个工具修改, 1 个新增</span>
+                                </div>
+                            </div>
+                            
+                            <!-- 分片预览 (Scrollable Grid) -->
+                            <div class="shard-preview">
+                                <h4>容器分片预览 (自动计算)</h4>
+                                <div class="shard-grid-wrapper">
+                                    <div class="shard-grid">
+                                        <!-- 模拟 12 个 Shards -->
+                                        <div class="shard-item"><div class="shard-head">Shard #1: Fin</div><div class="shard-body">15 Tools (8081)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #2: SCM</div><div class="shard-body">20 Tools (8082)</div></div>
+                                        <div class="shard-item new"><div class="shard-head">Shard #3: HR</div><div class="shard-body">7 Tools (8083)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #4: CRM</div><div class="shard-body">12 Tools (8084)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #5: OA</div><div class="shard-body">8 Tools (8085)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #6: Log</div><div class="shard-body">5 Tools (8086)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #7: Dev</div><div class="shard-body">30 Tools (8087)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #8: Ops</div><div class="shard-body">10 Tools (8088)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #9: Sec</div><div class="shard-body">4 Tools (8089)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #10: BI</div><div class="shard-body">18 Tools (8090)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #11: AI</div><div class="shard-body">2 Tools (8091)</div></div>
+                                        <div class="shard-item"><div class="shard-head">Shard #12: Misc</div><div class="shard-body">1 Tool (8092)</div></div>
+                                    </div>
+                                </div>
+                                <p class="hint-text"><i class="fa-solid fa-info-circle"></i> 系统已自动将工具按业务域拆分为 12 个容器，以保证上下文稳定性。</p>
+                            </div>
+
+                            <div class="deploy-actions">
+                                <button class="btn primary large" id="btn-start-deploy">
+                                    <i class="fa-solid fa-paper-plane"></i> 提交并重建容器
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 部署过程终端模拟 -->
+                        <div class="deploy-terminal" id="deploy-terminal" style="display: none;">
+                            <div class="terminal-header">
+                                <span>Deployment Log</span>
+                                <i class="fa-solid fa-spinner fa-spin"></i>
+                            </div>
+                            <div class="terminal-body" id="terminal-logs">
+                                <!-- 日志流 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. Monitor: 运行监控 -->
+                <div class="page-view" id="view-monitor">
+                    <div class="monitor-grid">
+                        <!-- 实时指标卡 -->
+                        <div class="monitor-card wide">
+                            <div class="chart-header">
+                                <h4>实时 QPS & Latency (Last 15m)</h4>
+                                <div class="chart-legend">
+                                    <span class="dot primary"></span> QPS
+                                    <span class="dot warning"></span> Latency (ms)
+                                </div>
+                            </div>
+                            <div class="chart-body line-chart-container">
+                                <!-- SVG 模拟折线图 -->
+                                <svg viewBox="0 0 600 150" class="line-chart-svg">
+                                    <path d="M0,100 Q50,80 100,90 T200,60 T300,80 T400,40 T500,50 T600,30" fill="none" stroke="var(--primary)" stroke-width="2"/>
+                                    <path d="M0,120 Q50,110 100,115 T200,100 T300,110 T400,90 T500,95 T600,80" fill="none" stroke="var(--warning)" stroke-width="2" stroke-dasharray="5,5"/>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- 容器状态 -->
+                        <div class="monitor-card">
+                            <div class="chart-header">
+                                <h4>容器资源水位</h4>
+                            </div>
+                            <div class="resource-list">
+                                <div class="resource-item">
+                                    <div class="res-head">
+                                        <span>Shard #1 (Fin)</span>
+                                        <span class="status-ok">Healthy</span>
+                                    </div>
+                                    <div class="progress-group">
+                                        <span class="label">CPU</span>
+                                        <div class="progress-bar"><div class="fill" style="width: 45%"></div></div>
+                                    </div>
+                                    <div class="progress-group">
+                                        <span class="label">MEM</span>
+                                        <div class="progress-bar"><div class="fill warning" style="width: 78%"></div></div>
+                                    </div>
+                                </div>
+                                <div class="resource-item">
+                                    <div class="res-head">
+                                        <span>Shard #2 (SCM)</span>
+                                        <span class="status-ok">Healthy</span>
+                                    </div>
+                                    <div class="progress-group">
+                                        <span class="label">CPU</span>
+                                        <div class="progress-bar"><div class="fill" style="width: 20%"></div></div>
+                                    </div>
+                                    <div class="progress-group">
+                                        <span class="label">MEM</span>
+                                        <div class="progress-bar"><div class="fill" style="width: 35%"></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 告警列表 -->
+                        <div class="monitor-card">
+                            <div class="chart-header">
+                                <h4>最近告警</h4>
+                            </div>
+                            <div class="alert-list">
+                                <div class="alert-item warn">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    <div class="alert-content">
+                                        <div class="alert-title">Shard #1 内存偏高</div>
+                                        <div class="alert-time">2 mins ago</div>
+                                    </div>
+                                </div>
+                                <div class="alert-item error">
+                                    <i class="fa-solid fa-circle-xmark"></i>
+                                    <div class="alert-content">
+                                        <div class="alert-title">金蝶 API 响应超时 (>5s)</div>
+                                        <div class="alert-time">15 mins ago</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Audit: 审计日志 -->
+                <div class="page-view" id="view-audit">
+                    <div class="audit-layout">
+                        <div class="audit-filter-bar">
+                            <input type="text" class="form-control" placeholder="TraceID / 工具名称 / 错误码">
+                            <select class="form-control" style="width: 120px;"><option>所有状态</option><option>成功</option><option>失败</option></select>
+                            <input type="date" class="form-control" style="width: 140px;">
+                            <button class="btn primary">查询</button>
+                        </div>
+                        <div class="tool-table-wrapper">
+                            <table class="tool-table audit-table">
+                                <thead>
+                                    <tr>
+                                        <th>TraceID</th>
+                                        <th>时间</th>
+                                        <th>调用工具</th>
+                                        <th>耗时</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="mono">tr_8a92b3</td>
+                                        <td>10:42:05</td>
+                                        <td>scm_getStock</td>
+                                        <td>125ms</td>
+                                        <td><span class="status-tag active">Success</span></td>
+                                        <td><button class="btn icon-only secondary view-audit-detail"><i class="fa-solid fa-eye"></i></button></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">tr_7c11f0</td>
+                                        <td>10:41:58</td>
+                                        <td>finance_createVoucher</td>
+                                        <td>850ms</td>
+                                        <td><span class="status-tag active">Success</span></td>
+                                        <td><button class="btn icon-only secondary view-audit-detail"><i class="fa-solid fa-eye"></i></button></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="mono">tr_6d55a1</td>
+                                        <td>10:40:12</td>
+                                        <td>hr_getEmployee</td>
+                                        <td>5002ms</td>
+                                        <td><span class="status-tag error">Timeout</span></td>
+                                        <td><button class="btn icon-only secondary view-audit-detail"><i class="fa-solid fa-eye"></i></button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 审计详情侧边栏 -->
+        <aside class="audit-drawer" id="audit-drawer">
+            <div class="drawer-header">
+                <h3>调用详情 (tr_6d55a1)</h3>
+                <button class="close-drawer"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="drawer-body">
+                <div class="detail-section">
+                    <h4>基本信息</h4>
+                    <div class="kv-grid">
+                        <div class="kv-item"><span class="k">工具:</span> <span class="v">hr_getEmployee</span></div>
+                        <div class="kv-item"><span class="k">状态:</span> <span class="v error">Timeout (Upstream)</span></div>
+                        <div class="kv-item"><span class="k">耗时:</span> <span class="v">5002ms</span></div>
+                        <div class="kv-item"><span class="k">客户端:</span> <span class="v">OpenClaw (10.0.1.5)</span></div>
+                    </div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>请求参数 (脱敏)</h4>
+                    <pre class="code-block">{
+  "employeeId": "EMP_9921",
+  "includeSalary": false,
+  "idCard": "310***********1234" <span class="comment">// Masked by Policy</span>
+}</pre>
+                </div>
+
+                <div class="detail-section">
+                    <h4>上游响应</h4>
+                    <pre class="code-block error-block">{
+  "error": {
+    "code": "UPSTREAM_TIMEOUT",
+    "message": "Gateway timeout from HR_System",
+    "details": {
+      "retryCount": 3
+    }
+  }
+}</pre>
+                </div>
+
+                <div class="detail-section">
+                    <h4>调用链路</h4>
+                    <div class="trace-timeline">
+                        <div class="timeline-item">
+                            <div class="time">0ms</div>
+                            <div class="event">MCP Hub 接收请求</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="time">5ms</div>
+                            <div class="event">鉴权通过 (HMAC)</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="time">10ms</div>
+                            <div class="event">发起 HTTP 请求 -> HR_System</div>
+                        </div>
+                        <div class="timeline-item error">
+                            <div class="time">5002ms</div>
+                            <div class="event">请求超时 (5000ms limit)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 弹窗：导入 OpenAPI -->
+    <div class="modal-overlay" id="modal-import">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>导入 OpenAPI 定义</h3>
+                <button class="close-modal"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>选择来源</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="source" checked> 上传文件 (.json/.yaml)</label>
+                        <label><input type="radio" name="source"> 粘贴文本</label>
+                        <label><input type="radio" name="source"> URL 导入</label>
+                    </div>
+                </div>
+                <div class="upload-area">
+                    <i class="fa-solid fa-cloud-upload-alt"></i>
+                    <p>拖拽文件到此处，或点击上传</p>
+                </div>
+                <div class="form-group">
+                    <label>自动处理</label>
+                    <label class="checkbox"><input type="checkbox" checked> 使用内置 LLM 生成中文业务名与描述</label>
+                    <label class="checkbox"><input type="checkbox" checked> 自动归类业务域</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary close-modal">取消</button>
+                <button class="btn primary" id="btn-confirm-import">开始解析</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 弹窗：鉴权配置 -->
+    <div class="modal-overlay" id="modal-auth">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>鉴权配置 - 金蝶 Cloud</h3>
+                <button class="close-modal"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>鉴权模式</label>
+                    <select class="form-control" id="auth-mode-select">
+                        <option value="hmac">HMAC 签名 (AppID/Secret)</option>
+                        <option value="oauth2">OAuth 2.0 (Client Credentials)</option>
+                        <option value="apikey">API Key (Header)</option>
+                    </select>
+                </div>
+                
+                <!-- HMAC 字段 -->
+                <div id="auth-fields-hmac">
+                    <div class="form-group">
+                        <label>App ID</label>
+                        <input type="text" class="form-control" value="203948" placeholder="请输入应用ID">
+                    </div>
+                    <div class="form-group">
+                        <label>App Secret</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" value="****************" placeholder="请输入密钥">
+                            <button class="btn secondary icon-only"><i class="fa-solid fa-eye"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" id="btn-test-connect">测试连通性</button>
+                <button class="btn primary close-modal">保存配置</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
