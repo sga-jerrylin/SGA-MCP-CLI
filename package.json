@@ -1,0 +1,13 @@
+{
+  "name": "mcp-claw",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.5.2",
+  "scripts": {
+    "lint": "pnpm -r lint",
+    "format": "pnpm -r format",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "contract:test": "pnpm -C packages/backend test:contract"
+  }
+}
