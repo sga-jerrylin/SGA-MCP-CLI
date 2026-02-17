@@ -19,6 +19,24 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '生成器' }
       },
       {
+        path: 'repository',
+        name: 'Repository',
+        component: () => import('@/views/Repository/RepoView.vue'),
+        meta: { title: '配置仓库' }
+      },
+      {
+        path: 'admin/tenants',
+        name: 'TenantManagement',
+        component: () => import('@/views/Admin/TenantManagement.vue'),
+        meta: { title: '租户管理' }
+      },
+      {
+        path: 'admin/tenants/:tenantId/keys',
+        name: 'KeyManagement',
+        component: () => import('@/views/Admin/KeyManagement.vue'),
+        meta: { title: 'API Key 管理' }
+      },
+      {
         path: 'settings/ai',
         name: 'AiSettings',
         component: () => import('@/views/Settings/AiEngineSettings.vue'),

@@ -12,7 +12,13 @@
         <span v-else>MC</span>
       </div>
 
-      <a-menu v-model:selected-keys="selectedKeys" theme="dark" mode="inline" @click="onMenuClick">
+      <a-menu
+        v-model:selected-keys="selectedKeys"
+        v-model:open-keys="openKeys"
+        theme="dark"
+        mode="inline"
+        @click="onMenuClick"
+      >
         <a-menu-item key="dashboard">
           <template #icon><DashboardOutlined /></template>
           <span>概览</span>
@@ -21,10 +27,21 @@
           <template #icon><ThunderboltOutlined /></template>
           <span>生成器</span>
         </a-menu-item>
+        <a-menu-item key="repository">
+          <template #icon><AppstoreOutlined /></template>
+          <span>配置仓库</span>
+        </a-menu-item>
+
+        <a-sub-menu key="admin">
+          <template #icon><SettingOutlined /></template>
+          <template #title>系统管理</template>
+          <a-menu-item key="tenants">租户管理</a-menu-item>
+          <a-menu-item key="ai-settings">AI 引擎</a-menu-item>
+        </a-sub-menu>
       </a-menu>
     </a-layout-sider>
 
-    <a-layout>
+    <a-layout :style="{ marginLeft: appStore.sidebarCollapsed ? '80px' : '200px' }">
       <a-layout-header class="main-layout__header">
         <component
           :is="appStore.sidebarCollapsed ? MenuUnfoldOutlined : MenuFoldOutlined"
@@ -45,13 +62,15 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue';
+  import { ref, computed, watch } from 'vue';
   import { useRouter, useRoute } from 'vue-router';
   import {
     MenuUnfoldOutlined,
     MenuFoldOutlined,
     DashboardOutlined,
-    ThunderboltOutlined
+    ThunderboltOutlined,
+    AppstoreOutlined,
+    SettingOutlined
   } from '@ant-design/icons-vue';
   import { useAppStore } from '@/store/app';
 
@@ -61,17 +80,31 @@
 
   const currentYear = computed(() => new Date().getFullYear());
 
-  /** 根据当前路由计算选中的菜单 key */
-  const selectedKeys = ref<string[]>([getMenuKey(route.path)]);
+  const selectedKeys = ref<string[]>([]);
+  const openKeys = ref<string[]>(['admin']);
 
-  function getMenuKey(path: string): string {
+  const getMenuKey = (path: string): string => {
     if (path.startsWith('/generator')) return 'generator';
+    if (path.startsWith('/repository')) return 'repository';
+    if (path.startsWith('/admin/tenants')) return 'tenants';
+    if (path.startsWith('/settings/ai')) return 'ai-settings';
     return 'dashboard';
-  }
+  };
+
+  watch(
+    () => route.path,
+    (path) => {
+      selectedKeys.value = [getMenuKey(path)];
+    },
+    { immediate: true }
+  );
 
   const menuRouteMap: Record<string, string> = {
     dashboard: '/',
-    generator: '/generator'
+    generator: '/generator',
+    repository: '/repository',
+    tenants: '/admin/tenants',
+    'ai-settings': '/settings/ai'
   };
 
   function onMenuClick({ key }: { key: string }) {
@@ -94,6 +127,7 @@
     left: 0;
     top: 0;
     bottom: 0;
+    z-index: 10;
   }
 
   .main-layout__logo {
@@ -113,6 +147,10 @@
     padding: 0 24px;
     display: flex;
     align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 9;
+    box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
   }
 
   .main-layout__trigger {
