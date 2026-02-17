@@ -15,10 +15,22 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'generator',
         name: 'Generator',
-        component: () => import('@/views/Generator.vue'),
+        component: () => import('@/views/Generator/GeneratorView.vue'),
         meta: { title: '生成器' }
+      },
+      {
+        path: 'settings/ai',
+        name: 'AiSettings',
+        component: () => import('@/views/Settings/AiEngineSettings.vue'),
+        meta: { title: 'AI 引擎设置' }
       }
     ]
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/Auth/LoginView.vue'),
+    meta: { title: '登录' }
   }
 ];
 
