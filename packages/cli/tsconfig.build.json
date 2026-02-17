@@ -1,7 +1,14 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "src"
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@mcp-claw/core": ["../core/dist/index.d.ts"],
+      "@mcp-claw/core/*": ["../core/dist/*"],
+      "@mcp-claw/shared": ["../shared/dist/types/api.d.ts"],
+      "@mcp-claw/shared/*": ["../shared/dist/*"]
+    }
   },
   "exclude": ["**/*.spec.ts", "jest.config.ts"]
 }
