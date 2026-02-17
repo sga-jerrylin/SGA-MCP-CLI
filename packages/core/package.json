@@ -17,7 +17,8 @@
   },
   "dependencies": {
     "@mcp-claw/shared": "workspace:*",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "openapi-mcp-generator": "^3.2.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

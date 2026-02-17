@@ -33,10 +33,35 @@ export function parseSystemInfo(markdown: string): IrSystem {
   return { code, baseUrl, authType };
 }
 
-export function parseToolHeader(_section: string): IrTool {
-  throw new DiagnosticError({
-    code: 'TOOL_PARSER_NOT_IMPLEMENTED',
-    section: 'Tools',
-    hint: 'Use parseToolHeader implementation from Task 2.8.'
-  });
+export function parseToolHeader(section: string): IrTool {
+  const nameMatch = section.match(/^##\s*Tool:\s*(.+)$/im);
+  const name = (nameMatch?.[1] ?? '').trim();
+
+  if (!name) {
+    throw new DiagnosticError({
+      code: 'MISSING_TOOL_NAME',
+      section: 'Tool Header',
+      hint: 'Use `## Tool: your_tool_name`.'
+    });
+  }
+
+  const method = (readField(section, 'Method') || 'GET').toUpperCase();
+  const path = readField(section, 'Path');
+  if (!path) {
+    throw new DiagnosticError({
+      code: 'MISSING_TOOL_PATH',
+      section: `Tool ${name}`,
+      hint: 'Add `- Path: /resource`.'
+    });
+  }
+
+  return {
+    name,
+    description: readField(section, 'Description') || `${method} ${path}`,
+    method,
+    path,
+    needsConfirmation: /needs\s*confirmation:\s*yes/i.test(section),
+    isAsync: /async:\s*yes/i.test(section),
+    params: []
+  };
 }
