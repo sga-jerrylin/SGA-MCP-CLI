@@ -18,3 +18,15 @@ export interface PackageBuildResult {
 export interface PackagerPort {
   build(input: PackageBuildInput): Promise<PackageBuildResult>;
 }
+
+export class InMemoryPackager implements PackagerPort {
+  public async build(input: PackageBuildInput): Promise<PackageBuildResult> {
+    const id = input.ir.system.code || 'package';
+    return {
+      archivePath: `/tmp/${id}.tgz`,
+      manifestPath: `/tmp/${id}-manifest.json`,
+      sbomPath: `/tmp/${id}-sbom.json`,
+      signaturePath: `/tmp/${id}-signature.sig`
+    };
+  }
+}
