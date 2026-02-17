@@ -40,11 +40,39 @@
   const progress = computed(() => generatorStore.progress);
   const currentStep = ref(0);
 
+  const stageMap: Record<string, number> = {
+    parsing: 0,
+    generating: 1,
+    fixing: 2,
+    testing: 3
+  };
+
+  // 声明 disconnect 引用，以便在回调中使用
+  let stopSse: (() => void) | null = null;
+
   // 使用 SseEvent 类型
-  const { connect } = useSse(`/api/generator/projects/${project.value.id}/events`, (data) => {
-    if (data.type === 'log') generatorStore.addLog(data);
-    if (data.type === 'progress') generatorStore.updateProgress(data.percent);
-  });
+  const { connect, disconnect } = useSse(
+    `/api/generator/projects/${project.value.id}/events`,
+    (data) => {
+      if (data.type === 'log') {
+        generatorStore.addLog(data);
+      } else if (data.type === 'progress') {
+        generatorStore.updateProgress(data.percent);
+        if (data.stage && stageMap[data.stage] !== undefined) {
+          currentStep.value = stageMap[data.stage];
+        }
+      } else if (data.type === 'done') {
+        generatorStore.isGenerating = false;
+        if (stopSse) stopSse();
+      } else if (data.type === 'error') {
+        generatorStore.isGenerating = false;
+        console.error('Generation Error:', data.message);
+        if (stopSse) stopSse();
+      }
+    }
+  );
+
+  stopSse = disconnect;
 
   const startGeneration = async () => {
     const payload: StartGenerateRequest = {

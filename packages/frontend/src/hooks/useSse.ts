@@ -12,10 +12,20 @@ export function useSse(url: string, onMessage: (data: SseEvent) => void) {
     eventSource.onopen = () => {
       status.value = 'open';
     };
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data) as SseEvent;
-      onMessage(data);
-    };
+
+    // Listen for specific named events defined in the API contract
+    const eventTypes = ['log', 'progress', 'step_change', 'done', 'error'];
+    eventTypes.forEach((type) => {
+      eventSource?.addEventListener(type, (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data) as SseEvent;
+          onMessage(data);
+        } catch (e) {
+          console.error(`Failed to parse SSE ${type} event`, e);
+        }
+      });
+    });
+
     eventSource.onerror = () => {
       status.value = 'closed';
       eventSource?.close();
