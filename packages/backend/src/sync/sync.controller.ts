@@ -7,6 +7,7 @@ export class SyncController {
   public constructor(private readonly syncService: SyncService) {}
 
   @Post('push')
+  // TODO: align with api-contract.yaml multipart/form-data format
   public async push(@Body() payload: SyncPushPayload): Promise<ApiResponse<SyncPushResponse>> {
     return {
       code: 0,

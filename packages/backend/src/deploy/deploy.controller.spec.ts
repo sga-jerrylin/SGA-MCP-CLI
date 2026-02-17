@@ -29,8 +29,8 @@ describe('DeployController', () => {
     controller = new DeployController(service as unknown as DeployService);
   });
 
-  it('builds preview from query serverIds', () => {
-    const response = controller.preview('s1,s2');
+  it('builds preview from body serverIds', () => {
+    const response = controller.preview({ serverIds: ['s1', 's2'] });
 
     expect(service.preview).toHaveBeenCalledWith({ serverIds: ['s1', 's2'] });
     expect(response.data.servers).toHaveLength(1);

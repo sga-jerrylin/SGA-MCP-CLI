@@ -1,14 +1,16 @@
-import { createServer } from 'node:http';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { createApp } from './bootstrap/create-app';
 
-const server = createServer((_req, res) => {
-  res.statusCode = 200;
-  res.setHeader('content-type', 'application/json');
-  res.end(JSON.stringify({ status: 'ok' }));
-});
-
-if (process.env.NODE_ENV !== 'test') {
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  createApp(app);
   const port = Number(process.env.PORT ?? 3000);
-  server.listen(port);
+  await app.listen(port);
 }
 
-export { server };
+if (process.env.NODE_ENV !== 'test') {
+  void bootstrap();
+}
+
+export { bootstrap };
