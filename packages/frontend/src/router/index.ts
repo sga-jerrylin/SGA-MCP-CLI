@@ -19,6 +19,24 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '生成器' }
       },
       {
+        path: 'runtime/servers',
+        name: 'ServerDirectory',
+        component: () => import('@/views/Runtime/ServerDirectory.vue'),
+        meta: { title: 'Server 目录' }
+      },
+      {
+        path: 'runtime/deploy',
+        name: 'DeployView',
+        component: () => import('@/views/Runtime/DeployView.vue'),
+        meta: { title: '部署发布' }
+      },
+      {
+        path: 'library',
+        name: 'ToolLibrary',
+        component: () => import('@/views/Library/ToolLibrary.vue'),
+        meta: { title: '工具库' }
+      },
+      {
         path: 'repository',
         name: 'Repository',
         component: () => import('@/views/Repository/RepoView.vue'),

@@ -27,6 +27,16 @@
           <template #icon><ThunderboltOutlined /></template>
           <span>生成器</span>
         </a-menu-item>
+        <a-menu-item key="library">
+          <template #icon><ToolOutlined /></template>
+          <span>工具库</span>
+        </a-menu-item>
+        <a-sub-menu key="runtime">
+          <template #icon><DeploymentUnitOutlined /></template>
+          <template #title>部署与运行时</template>
+          <a-menu-item key="servers">Server 目录</a-menu-item>
+          <a-menu-item key="deploy">部署发布</a-menu-item>
+        </a-sub-menu>
         <a-menu-item key="repository">
           <template #icon><AppstoreOutlined /></template>
           <span>配置仓库</span>
@@ -70,7 +80,9 @@
     DashboardOutlined,
     ThunderboltOutlined,
     AppstoreOutlined,
-    SettingOutlined
+    SettingOutlined,
+    ToolOutlined,
+    DeploymentUnitOutlined
   } from '@ant-design/icons-vue';
   import { useAppStore } from '@/store/app';
 
@@ -85,6 +97,9 @@
 
   const getMenuKey = (path: string): string => {
     if (path.startsWith('/generator')) return 'generator';
+    if (path.startsWith('/library')) return 'library';
+    if (path.startsWith('/runtime/servers')) return 'servers';
+    if (path.startsWith('/runtime/deploy')) return 'deploy';
     if (path.startsWith('/repository')) return 'repository';
     if (path.startsWith('/admin/tenants')) return 'tenants';
     if (path.startsWith('/settings/ai')) return 'ai-settings';
@@ -102,6 +117,9 @@
   const menuRouteMap: Record<string, string> = {
     dashboard: '/',
     generator: '/generator',
+    library: '/library',
+    servers: '/runtime/servers',
+    deploy: '/runtime/deploy',
     repository: '/repository',
     tenants: '/admin/tenants',
     'ai-settings': '/settings/ai'
