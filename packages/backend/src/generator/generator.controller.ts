@@ -1,3 +1,4 @@
+import type { PackageBuildResult } from '@mcp-claw/core';
 import type { ApiResponse, Artifact, GenerateRun, PaginatedList, Project } from '@mcp-claw/shared';
 import {
   Body,
@@ -21,8 +22,17 @@ interface CreateProjectBody {
   docType?: 'markdown' | 'openapi' | 'auto';
 }
 
+interface UploadedDocumentFile {
+  originalname?: string;
+  buffer?: Buffer;
+}
+
 @Controller('generator')
 export class GeneratorController {
+  private readonly projectContents = new Map<string, string>();
+  private readonly runResults = new Map<string, PackageBuildResult>();
+  private readonly latestRunByProject = new Map<string, string>();
+
   private readonly projects: Project[] = [
     {
       id: 'proj-1',
@@ -53,7 +63,19 @@ export class GeneratorController {
   ]);
 
   public constructor(private readonly generatorService: GeneratorService) {
-    void this.generatorService;
+    this.projectContents.set(
+      'proj-1',
+      [
+        '- System Code: demo_system',
+        '- Base URL: https://api.example.com',
+        '- Auth Type: none',
+        '',
+        '## Tool: list_items',
+        '- Method: GET',
+        '- Path: /items',
+        '- Description: List items'
+      ].join('\n')
+    );
   }
 
   @Get('projects')
@@ -84,11 +106,12 @@ export class GeneratorController {
   @UseInterceptors(FileInterceptor('file'))
   public createProject(
     @Body() body: CreateProjectBody,
-    @UploadedFile() file?: { originalname?: string }
+    @UploadedFile() file?: UploadedDocumentFile
   ): ApiResponse<Project> {
     const now = new Date().toISOString();
+    const projectId = `proj-${Date.now()}`;
     const project: Project = {
-      id: `proj-${Date.now()}`,
+      id: projectId,
       name: body.name,
       description: body.description ?? file?.originalname,
       status: 'pending',
@@ -98,6 +121,10 @@ export class GeneratorController {
       updatedAt: now
     };
     this.projects.unshift(project);
+
+    const fileContent =
+      file?.buffer?.toString('utf8') ?? body.description ?? file?.originalname ?? '';
+    this.projectContents.set(projectId, fileContent);
 
     return {
       code: 0,
@@ -118,15 +145,55 @@ export class GeneratorController {
 
   @Post('projects/:id/start')
   public startProject(@Param('id') id: string): ApiResponse<GenerateRun> {
+    const targetProject = this.projects.find((item) => item.id === id);
     const run: GenerateRun = {
       id: `run-${Date.now()}`,
       projectId: id,
       status: 'running',
-      parserModel: 'claude-3-haiku',
-      coderModel: 'claude-3-5-sonnet',
+      parserModel: process.env.LLM_PARSER_MODEL ?? 'anthropic/claude-haiku-4.5',
+      coderModel: process.env.LLM_CODER_MODEL ?? 'openai/gpt-5.2-codex',
       fixRounds: 0,
       startedAt: new Date().toISOString()
     };
+
+    const fallbackContent = [
+      '- System Code: generated_system',
+      '- Base URL: https://api.generated.local',
+      '- Auth Type: none',
+      '',
+      '## Tool: health_check',
+      '- Method: GET',
+      '- Path: /health',
+      '- Description: Health check'
+    ].join('\n');
+
+    const content =
+      this.projectContents.get(id) ??
+      targetProject?.description ??
+      targetProject?.name ??
+      fallbackContent;
+
+    Promise.resolve(this.generatorService.generateFromDoc(content))
+      .then((result) => {
+        if (!result) {
+          return;
+        }
+
+        this.runResults.set(run.id, result);
+        this.latestRunByProject.set(id, run.id);
+        this.artifactsByProject.set(id, this.buildArtifactsFromResult(run.id, result));
+
+        if (targetProject) {
+          targetProject.status = 'done';
+          targetProject.updatedAt = new Date().toISOString();
+        }
+      })
+      .catch(() => {
+        if (targetProject) {
+          targetProject.status = 'failed';
+          targetProject.updatedAt = new Date().toISOString();
+        }
+      });
 
     return {
       code: 0,
@@ -177,10 +244,41 @@ export class GeneratorController {
 
   @Get('projects/:id/artifacts')
   public listArtifacts(@Param('id') id: string): ApiResponse<Artifact[]> {
+    const latestRunId = this.latestRunByProject.get(id);
+    if (latestRunId) {
+      const result = this.runResults.get(latestRunId);
+      if (result) {
+        return {
+          code: 0,
+          message: 'ok',
+          data: this.buildArtifactsFromResult(latestRunId, result)
+        };
+      }
+    }
+
     return {
       code: 0,
       message: 'ok',
       data: this.artifactsByProject.get(id) ?? []
     };
+  }
+
+  private buildArtifactsFromResult(runId: string, result: PackageBuildResult): Artifact[] {
+    const createdAt = new Date().toISOString();
+    const entries: Array<{ type: Artifact['type']; fileName: string }> = [
+      { type: 'package', fileName: result.archivePath },
+      { type: 'config', fileName: result.manifestPath },
+      { type: 'config', fileName: result.sbomPath },
+      { type: 'config', fileName: result.signaturePath }
+    ];
+
+    return entries.map((entry, index) => ({
+      id: `${runId}-artifact-${index + 1}`,
+      runId,
+      type: entry.type,
+      fileName: entry.fileName,
+      size: entry.fileName.length,
+      createdAt
+    }));
   }
 }

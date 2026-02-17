@@ -1,7 +1,4 @@
-export interface LlmProvider {
-  name: string;
-  complete(prompt: string): Promise<string>;
-}
+import type { LlmClient } from '../codegen/codegen.service';
 
 interface OpenRouterChatCompletionResponse {
   choices?: Array<{
@@ -11,17 +8,12 @@ interface OpenRouterChatCompletionResponse {
   }>;
 }
 
-export class OpenRouterProvider implements LlmProvider {
-  public name: string;
-
+export class OpenRouterClient implements LlmClient {
   public constructor(
-    name: string,
     private readonly model: string,
     private readonly apiKey: string,
-    private readonly baseUrl = 'https://openrouter.ai/api/v1'
-  ) {
-    this.name = name;
-  }
+    private readonly baseUrl: string
+  ) {}
 
   public async complete(prompt: string): Promise<string> {
     const endpoint = `${this.baseUrl.replace(/\/+$/, '')}/chat/completions`;
@@ -58,28 +50,5 @@ export class OpenRouterProvider implements LlmProvider {
     }
 
     return '';
-  }
-}
-
-export interface LlmCompleteRequest {
-  provider: string;
-  prompt: string;
-}
-
-export class LlmClientRouter {
-  private readonly providers = new Map<string, LlmProvider>();
-
-  public constructor(providers: LlmProvider[]) {
-    for (const provider of providers) {
-      this.providers.set(provider.name, provider);
-    }
-  }
-
-  public async complete(request: LlmCompleteRequest): Promise<string> {
-    const provider = this.providers.get(request.provider);
-    if (!provider) {
-      throw new Error('provider not found');
-    }
-    return provider.complete(request.prompt);
   }
 }

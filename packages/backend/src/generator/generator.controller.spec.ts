@@ -7,7 +7,12 @@ describe('GeneratorController', () => {
 
   beforeEach(() => {
     const service = {
-      generateFromDoc: jest.fn()
+      generateFromDoc: jest.fn().mockResolvedValue({
+        archivePath: '/tmp/archive.tgz',
+        manifestPath: '/tmp/manifest.json',
+        sbomPath: '/tmp/sbom.json',
+        signaturePath: '/tmp/signature.sig'
+      })
     } as unknown as GeneratorService;
     controller = new GeneratorController(service);
   });

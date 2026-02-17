@@ -14,3 +14,4 @@ export * from './codegen/codegen.service';
 export * from './sandbox/sandbox-port';
 export * from './sandbox/sandbox-http.adapter';
 export * from './packager/packager';
+export { OpenRouterClient } from './llm/openrouter-client';
