@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Build shared
+        run: pnpm --filter @mcp-claw/shared build
+      - name: Test core
+        run: pnpm --filter @mcp-claw/core test
+      - name: Test backend
+        run: pnpm --filter @mcp-claw/backend test
+      - name: Test CLI
+        run: pnpm --filter @mcp-claw/cli test
+      - name: Build frontend
+        run: pnpm --filter @mcp-claw/frontend build
