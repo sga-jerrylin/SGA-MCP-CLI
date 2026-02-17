@@ -20,9 +20,9 @@ describe('SyncAgent', () => {
     };
 
     const agent = new SyncAgent(client as any);
-    const result = await agent.syncDown();
+    const result = await agent.syncDown('test-pkg-id');
 
-    expect(client.pull).toHaveBeenCalledTimes(1);
+    expect(client.pull).toHaveBeenCalledWith('test-pkg-id');
     expect(result).toEqual({ ok: true });
   });
 });

@@ -20,10 +20,10 @@ describe('HubApiClient', () => {
     });
     const client = new HubApiClient('https://hub.example.com', fetcher as any);
 
-    const data = await client.pull();
+    const data = await client.pull('test-pkg-id');
 
     expect(fetcher).toHaveBeenCalledWith(
-      'https://hub.example.com/sync/pull',
+      'https://hub.example.com/sync/pull/test-pkg-id',
       expect.objectContaining({ method: 'GET' })
     );
     expect(data).toEqual({ hello: 'world' });

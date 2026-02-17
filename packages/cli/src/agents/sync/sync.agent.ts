@@ -7,7 +7,7 @@ export class SyncAgent {
     await this.client.push(data);
   }
 
-  public syncDown(): Promise<object> {
-    return this.client.pull();
+  public syncDown(packageId: string): Promise<object> {
+    return this.client.pull(packageId);
   }
 }

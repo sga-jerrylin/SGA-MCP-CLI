@@ -56,121 +56,121 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
-import { DownloadOutlined } from '@ant-design/icons-vue';
-import { message } from 'ant-design-vue';
-import http from '@/utils/http';
-import type { ApiResponse, PaginatedList, Package } from '@mcp-claw/shared';
+  import { ref, onMounted, watch } from 'vue';
+  import { DownloadOutlined } from '@ant-design/icons-vue';
+  import { message } from 'ant-design-vue';
+  import http from '@/utils/http';
+  import type { ApiResponse, PaginatedList, Package } from '@mcp-claw/shared';
 
-const searchText = ref('');
-const activeCat = ref('全部');
-const packages = ref<Package[]>([]);
-const loading = ref(false);
-const categories = ['全部', 'ERP', 'CRM', '通信', 'AI模型', '文档', '办公工具'];
+  const searchText = ref('');
+  const activeCat = ref('全部');
+  const packages = ref<Package[]>([]);
+  const loading = ref(false);
+  const categories = ['全部', 'ERP', 'CRM', '通信', 'AI模型', '文档', '办公工具'];
 
-const pagination = ref({
-  onChange: (page: number) => {
-    fetchPackages(page);
-  },
-  current: 1,
-  pageSize: 12,
-  total: 0
-});
+  const pagination = ref({
+    onChange: (page: number) => {
+      fetchPackages(page);
+    },
+    current: 1,
+    pageSize: 12,
+    total: 0
+  });
 
-const fetchPackages = async (page = 1) => {
-  loading.value = true;
-  try {
-    const res = (await http.get<ApiResponse<PaginatedList<Package>>>('/packages', {
-      params: {
-        page,
-        pageSize: pagination.value.pageSize,
-        search: searchText.value,
-        category: activeCat.value !== '全部' ? activeCat.value : undefined
+  const fetchPackages = async (page = 1) => {
+    loading.value = true;
+    try {
+      const res = (await http.get<ApiResponse<PaginatedList<Package>>>('/repo/packages', {
+        params: {
+          page,
+          pageSize: pagination.value.pageSize,
+          search: searchText.value,
+          category: activeCat.value !== '全部' ? activeCat.value : undefined
+        }
+      })) as unknown as ApiResponse<PaginatedList<Package>>;
+
+      if (res.code === 0) {
+        packages.value = res.data.items;
+        pagination.value.current = res.data.page;
+        pagination.value.total = res.data.total;
       }
-    })) as unknown as ApiResponse<PaginatedList<Package>>;
-
-    if (res.code === 0) {
-      packages.value = res.data.items;
-      pagination.value.current = res.data.page;
-      pagination.value.total = res.data.total;
+    } finally {
+      loading.value = false;
     }
-  } finally {
-    loading.value = false;
-  }
-};
+  };
 
-const handleInstall = async (pkg: Package) => {
-  try {
-    await http.post(`/packages/${pkg.id}/install`);
-    message.success(`已开始安装 ${pkg.name}`);
-  } catch {
-    // 错误已由 http 拦截器处理
-  }
-};
+  const handleInstall = async (pkg: Package) => {
+    try {
+      await http.post(`/repo/packages/${pkg.id}/install`);
+      message.success(`已开始安装 ${pkg.name}`);
+    } catch {
+      // 错误已由 http 拦截器处理
+    }
+  };
 
-const getRandomGradient = () => {
-  const gradients = [
-    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    'linear-gradient(135deg, #2af598 0%, #009efd 100%)',
-    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
-  ];
-  return gradients[Math.floor(Math.random() * gradients.length)];
-};
+  const getRandomGradient = () => {
+    const gradients = [
+      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      'linear-gradient(135deg, #2af598 0%, #009efd 100%)',
+      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
+    ];
+    return gradients[Math.floor(Math.random() * gradients.length)];
+  };
 
-watch(activeCat, () => {
-  fetchPackages(1);
-});
+  watch(activeCat, () => {
+    fetchPackages(1);
+  });
 
-onMounted(() => {
-  fetchPackages();
-});
+  onMounted(() => {
+    fetchPackages();
+  });
 </script>
 
 <style lang="less" scoped>
-.repo-view {
-  .search-section {
-    max-width: 800px;
-    margin: 0 auto 40px;
-    text-align: center;
-    .categories {
-      margin-top: 16px;
-      .cat-tag {
-        cursor: pointer;
-        padding: 4px 12px;
+  .repo-view {
+    .search-section {
+      max-width: 800px;
+      margin: 0 auto 40px;
+      text-align: center;
+      .categories {
+        margin-top: 16px;
+        .cat-tag {
+          cursor: pointer;
+          padding: 4px 12px;
+        }
+      }
+    }
+    .package-card {
+      .card-cover {
+        height: 120px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        .icon {
+          font-size: 48px;
+          font-weight: bold;
+        }
+      }
+      .desc {
+        height: 44px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        margin-bottom: 12px;
+      }
+      .tags {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        .version {
+          color: #999;
+          font-size: 12px;
+        }
       }
     }
   }
-  .package-card {
-    .card-cover {
-      height: 120px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      .icon {
-        font-size: 48px;
-        font-weight: bold;
-      }
-    }
-    .desc {
-      height: 44px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      margin-bottom: 12px;
-    }
-    .tags {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      .version {
-        color: #999;
-        font-size: 12px;
-      }
-    }
-  }
-}
 </style>

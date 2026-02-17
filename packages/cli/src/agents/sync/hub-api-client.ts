@@ -14,8 +14,8 @@ export class HubApiClient {
     });
   }
 
-  public async pull(): Promise<object> {
-    const response = await this.fetcher(`${this.baseUrl}/sync/pull`, {
+  public async pull(packageId: string): Promise<object> {
+    const response = await this.fetcher(`${this.baseUrl}/sync/pull/${packageId}`, {
       method: 'GET'
     });
 
