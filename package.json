@@ -9,7 +9,8 @@
     "format": "prettier --write \"**/*.{js,ts,vue,css,md,json}\"",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "contract:lint": "spectral lint packages/shared/api-contract.yaml"
+    "contract:lint": "spectral lint packages/shared/api-contract.yaml",
+    "test:core": "pnpm --filter @mcp-claw/core test"
   },
   "lint-staged": {
     "*.{js,ts,vue}": [
