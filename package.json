@@ -10,7 +10,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "contract:lint": "spectral lint packages/shared/api-contract.yaml",
-    "test:core": "pnpm --filter @mcp-claw/core test"
+    "test:core": "pnpm --filter @mcp-claw/core test",
+    "test:cli": "pnpm --filter @mcp-claw/cli test"
   },
   "lint-staged": {
     "*.{js,ts,vue}": [
