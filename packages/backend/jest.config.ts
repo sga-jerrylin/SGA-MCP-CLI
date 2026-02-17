@@ -2,13 +2,24 @@ import type { Config } from 'jest';
 
 const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: 'src',
-  testRegex: '.*\\.spec\\.ts$',
+  rootDir: '.',
+  testRegex: '(src|test/integration)/.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.ts$': 'ts-jest'
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.json'
+      }
+    ]
   },
-  collectCoverageFrom: ['**/*.ts', '!**/*.spec.ts', '!**/index.ts'],
-  coverageDirectory: '../coverage',
+  moduleNameMapper: {
+    '^@mcp-claw/core$': '<rootDir>/../core/src/index.ts',
+    '^@mcp-claw/core/(.*)$': '<rootDir>/../core/src/$1',
+    '^@mcp-claw/shared$': '<rootDir>/../shared/src/index.ts',
+    '^@mcp-claw/shared/(.*)$': '<rootDir>/../shared/$1'
+  },
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.spec.ts', '!src/**/index.ts'],
+  coverageDirectory: './coverage',
   testEnvironment: 'node'
 };
 

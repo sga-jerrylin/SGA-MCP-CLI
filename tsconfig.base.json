@@ -13,7 +13,9 @@
     "baseUrl": ".",
     "paths": {
       "@mcp-claw/shared": ["packages/shared/types/api.ts"],
-      "@mcp-claw/shared/*": ["packages/shared/*"]
+      "@mcp-claw/shared/*": ["packages/shared/*"],
+      "@mcp-claw/core": ["packages/core/src/index.ts"],
+      "@mcp-claw/core/*": ["packages/core/src/*"]
     }
   }
 }
