@@ -1,10 +1,24 @@
 import type { ApiResponse, PaginatedList, SseEvent } from '@mcp-claw/shared';
 import { Body, Controller, Get, MessageEvent, Param, Post, Query, Sse } from '@nestjs/common';
 import { concat, from, map, Observable } from 'rxjs';
-import { AgentRunSummary, AuditLog, MonitorService, SystemMetricsSnapshot } from './monitor.service';
+import {
+  AgentRunSummary,
+  AuditLog,
+  DashboardSummary,
+  MonitorService,
+  SystemMetricsSnapshot,
+  ToolCallStat
+} from './monitor.service';
 
 interface CreateCliRunRequest {
   root: string;
+}
+
+interface RecordToolCallRequest {
+  serverId: string;
+  serverName: string;
+  toolName: string;
+  durationMs?: number;
 }
 
 @Controller('monitor')
@@ -77,5 +91,39 @@ export class MonitorController {
       .pipe(map((event) => ({ type: event.type, data: event })));
 
     return concat(historyEvents, liveEvents);
+  }
+
+  @Post('tool-calls')
+  public recordToolCall(@Body() body: RecordToolCallRequest): ApiResponse<{ ok: boolean }> {
+    this.monitorService.recordToolCall(
+      body.serverId,
+      body.serverName,
+      body.toolName,
+      body.durationMs
+    );
+
+    return {
+      code: 0,
+      message: 'ok',
+      data: { ok: true }
+    };
+  }
+
+  @Get('tool-stats')
+  public getToolStats(): ApiResponse<ToolCallStat[]> {
+    return {
+      code: 0,
+      message: 'ok',
+      data: this.monitorService.getToolStats()
+    };
+  }
+
+  @Get('dashboard')
+  public getDashboard(): ApiResponse<DashboardSummary> {
+    return {
+      code: 0,
+      message: 'ok',
+      data: this.monitorService.getDashboardSummary()
+    };
   }
 }

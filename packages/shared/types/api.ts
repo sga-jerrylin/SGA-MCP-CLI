@@ -322,6 +322,29 @@ export interface SystemMetricsSnapshot {
   totalServers: number;
 }
 
+export interface ToolCallStat {
+  toolName: string;
+  serverId: string;
+  serverName: string;
+  callCount: number;
+  lastCalledAt: string;
+}
+
+export interface HourlyCount {
+  hour: string;
+  count: number;
+}
+
+export interface DashboardSummary {
+  topTools: ToolCallStat[];
+  totalCallsLast24h: number;
+  hourlyTrend: HourlyCount[];
+  activeServers: number;
+  totalPackages: number;
+  uptimeSeconds: number;
+  memUsedMb: number;
+}
+
 export interface Metrics {
   summary: {
     totalServers: number;
