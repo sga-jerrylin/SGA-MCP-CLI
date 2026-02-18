@@ -2,11 +2,15 @@ import type { Package, SyncPushResponse } from '@mcp-claw/shared';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { MinioService } from '../storage/minio.service';
 
-export interface SyncPushPayload {
+export interface SyncPushMetadata {
   packageId: string;
-  tarball: string;
   manifest: Package;
   autoDeploy?: boolean;
+}
+
+export interface SyncPushInput {
+  tarball: Buffer;
+  metadata: SyncPushMetadata;
 }
 
 @Injectable()
@@ -15,23 +19,23 @@ export class SyncService {
 
   public constructor(private readonly minio: MinioService) {}
 
-  public async push(payload: SyncPushPayload): Promise<SyncPushResponse> {
-    const tarball = Buffer.from(payload.tarball, 'base64');
-    const objectKey = `packages/${payload.packageId}/package.tgz`;
+  public async push(input: SyncPushInput): Promise<SyncPushResponse> {
+    const { metadata, tarball } = input;
+    const objectKey = `packages/${metadata.packageId}/package.tgz`;
 
     await this.minio.putObject('packages', objectKey, tarball);
-    this.manifests.set(payload.packageId, payload.manifest);
+    this.manifests.set(metadata.packageId, metadata.manifest);
 
     return {
-      packageId: payload.packageId,
+      packageId: metadata.packageId,
       servers: [
         {
           serverId: 'srv-default',
           name: 'Default Server',
-          toolCount: payload.manifest.toolCount
+          toolCount: metadata.manifest.toolCount
         }
       ],
-      deployed: Boolean(payload.autoDeploy)
+      deployed: Boolean(metadata.autoDeploy)
     };
   }
 

@@ -1,6 +1,6 @@
 import type { Package, SyncPushResponse } from '@mcp-claw/shared';
 import { SyncController } from './sync.controller';
-import { SyncService, type SyncPushPayload } from './sync.service';
+import { SyncService, type SyncPushInput } from './sync.service';
 
 describe('SyncController', () => {
   const manifest: Package = {
@@ -17,7 +17,7 @@ describe('SyncController', () => {
   };
 
   let service: {
-    push: jest.Mock<Promise<SyncPushResponse>, [SyncPushPayload]>;
+    push: jest.Mock<Promise<SyncPushResponse>, [SyncPushInput]>;
     pull: jest.Mock<Promise<{ tarball: Buffer; manifest: Package }>, [string]>;
   };
   let controller: SyncController;
@@ -39,15 +39,26 @@ describe('SyncController', () => {
   });
 
   it('delegates push to service', async () => {
-    const payload: SyncPushPayload = {
-      packageId: 'pkg-1',
-      tarball: Buffer.from('tar').toString('base64'),
-      manifest
+    const body = {
+      metadata: JSON.stringify({
+        packageId: 'pkg-1',
+        manifest
+      })
+    };
+    const file = {
+      buffer: Buffer.from('tar')
+    };
+    const expected: SyncPushInput = {
+      tarball: file.buffer,
+      metadata: {
+        packageId: 'pkg-1',
+        manifest
+      }
     };
 
-    const response = await controller.push(payload);
+    const response = await controller.push(body, file);
 
-    expect(service.push).toHaveBeenCalledWith(payload);
+    expect(service.push).toHaveBeenCalledWith(expected);
     expect(response.code).toBe(0);
     expect(response.data.packageId).toBe('pkg-1');
   });

@@ -25,10 +25,12 @@ describe('SyncService', () => {
     const service = new SyncService(minio);
 
     const response = await service.push({
-      packageId: 'pkg-1',
-      tarball: Buffer.from('tar-data').toString('base64'),
-      manifest,
-      autoDeploy: true
+      tarball: Buffer.from('tar-data'),
+      metadata: {
+        packageId: 'pkg-1',
+        manifest,
+        autoDeploy: true
+      }
     });
 
     expect((minio as unknown as { putObject: jest.Mock }).putObject).toHaveBeenCalledTimes(1);
@@ -44,9 +46,11 @@ describe('SyncService', () => {
     const service = new SyncService(minio);
 
     await service.push({
-      packageId: 'pkg-1',
-      tarball: Buffer.from('tar-data').toString('base64'),
-      manifest
+      tarball: Buffer.from('tar-data'),
+      metadata: {
+        packageId: 'pkg-1',
+        manifest
+      }
     });
 
     const pulled = await service.pull('pkg-1');
