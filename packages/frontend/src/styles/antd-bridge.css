@@ -1,0 +1,34 @@
+.ant-layout-sider {
+  background: var(--bg-sidebar) !important;
+}
+
+.ant-menu-dark,
+.ant-menu-dark .ant-menu-sub {
+  background: var(--bg-sidebar) !important;
+}
+
+.ant-menu-dark .ant-menu-item,
+.ant-menu-dark .ant-menu-submenu-title {
+  border-right: 3px solid transparent;
+}
+
+.ant-menu-dark .ant-menu-item-selected,
+.ant-menu-dark .ant-menu-item:hover,
+.ant-menu-dark .ant-menu-submenu-title:hover {
+  border-right-color: var(--primary);
+}
+
+.ant-card {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th {
+  background: var(--bg-table-head);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--border-soft);
+}

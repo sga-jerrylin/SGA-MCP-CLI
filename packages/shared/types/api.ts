@@ -42,7 +42,14 @@ export interface LoginResponse {
 
 // ── Generator ───────────────────────────────
 
-export type ProjectStatus = 'pending' | 'parsing' | 'generating' | 'testing' | 'fixing' | 'done' | 'failed';
+export type ProjectStatus =
+  | 'pending'
+  | 'parsing'
+  | 'generating'
+  | 'testing'
+  | 'fixing'
+  | 'done'
+  | 'failed';
 export type DocType = 'markdown' | 'openapi' | 'auto';
 
 export interface Project {
@@ -127,7 +134,12 @@ export interface SseErrorEvent {
   details?: string;
 }
 
-export type SseEvent = SseLogEvent | SseProgressEvent | SseStepChangeEvent | SseDoneEvent | SseErrorEvent;
+export type SseEvent =
+  | SseLogEvent
+  | SseProgressEvent
+  | SseStepChangeEvent
+  | SseDoneEvent
+  | SseErrorEvent;
 
 // ── Runtime (MCP Servers) ───────────────────
 
@@ -265,7 +277,7 @@ export interface CreateApiKeyRequest {
 export interface CreateApiKeyResponse {
   id: string;
   name: string;
-  key: string;  // 完整Key，仅创建时可见
+  key: string; // 完整Key，仅创建时可见
   prefix: string;
   expiresAt: string;
 }
@@ -300,6 +312,14 @@ export interface AgentRun {
   status: AgentRunStatus;
   startedAt: string;
   eventCount: number;
+}
+
+export interface SystemMetricsSnapshot {
+  uptime: number;
+  memUsed: number;
+  activeRequests: number;
+  totalPackages: number;
+  totalServers: number;
 }
 
 export interface Metrics {

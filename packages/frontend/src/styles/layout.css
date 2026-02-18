@@ -1,0 +1,16 @@
+html,
+body,
+#app {
+  min-height: 100%;
+  background: var(--bg-content);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text-main);
+}
+
+body {
+  margin: 0;
+}
+
+.main-layout__content {
+  background: transparent !important;
+}

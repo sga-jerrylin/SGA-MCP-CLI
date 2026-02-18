@@ -57,20 +57,23 @@
 
     <a-layout :style="{ marginLeft: appStore.sidebarCollapsed ? '80px' : '200px' }">
       <a-layout-header class="main-layout__header">
-        <component
-          :is="appStore.sidebarCollapsed ? MenuUnfoldOutlined : MenuFoldOutlined"
-          class="main-layout__trigger"
-          @click="appStore.toggleSidebar"
-        />
+        <div class="main-layout__header-left">
+          <component
+            :is="appStore.sidebarCollapsed ? MenuUnfoldOutlined : MenuFoldOutlined"
+            class="main-layout__trigger"
+            @click="appStore.toggleSidebar"
+          />
+          <span class="main-layout__page-title">{{ currentPageTitle }}</span>
+        </div>
+        <div class="main-layout__header-status">
+          <span class="status-dot" />
+          <span>系统正常</span>
+        </div>
       </a-layout-header>
 
       <a-layout-content class="main-layout__content">
         <router-view />
       </a-layout-content>
-
-      <a-layout-footer class="main-layout__footer">
-        MCP Claw &copy; {{ currentYear }}
-      </a-layout-footer>
     </a-layout>
   </a-layout>
 </template>
@@ -94,8 +97,6 @@
   const router = useRouter();
   const route = useRoute();
   const appStore = useAppStore();
-
-  const currentYear = computed(() => new Date().getFullYear());
 
   const selectedKeys = ref<string[]>([]);
   const openKeys = ref<string[]>(['admin']);
@@ -131,6 +132,23 @@
     tenants: '/admin/tenants',
     'ai-settings': '/settings/ai'
   };
+
+  const pageTitleMap: Record<string, string> = {
+    dashboard: '概览',
+    generator: '生成器',
+    library: '工具库',
+    servers: 'Server 目录',
+    deploy: '部署发布',
+    repository: '配置仓库',
+    monitor: '运行监控',
+    tenants: '租户管理',
+    'ai-settings': 'AI 引擎'
+  };
+
+  const currentPageTitle = computed(() => {
+    const key = getMenuKey(route.path);
+    return pageTitleMap[key] ?? '概览';
+  });
 
   function onMenuClick({ key }: { key: string }) {
     const target = menuRouteMap[key];
@@ -172,10 +190,17 @@
     padding: 0 24px;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     position: sticky;
     top: 0;
     z-index: 9;
-    box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .main-layout__header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   .main-layout__trigger {
@@ -184,17 +209,35 @@
     transition: color 0.3s;
   }
 
+  .main-layout__page-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  .main-layout__header-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+  }
+
   .main-layout__trigger:hover {
-    color: #1890ff;
+    color: var(--primary);
   }
 
   .main-layout__content {
     margin: 24px;
     min-height: 280px;
-  }
-
-  .main-layout__footer {
-    text-align: center;
-    color: rgba(0, 0, 0, 0.45);
+    background: transparent;
   }
 </style>

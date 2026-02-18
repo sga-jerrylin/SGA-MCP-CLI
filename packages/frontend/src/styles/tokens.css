@@ -1,0 +1,16 @@
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --bg-sidebar: #1e293b;
+  --bg-content: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-table-head: #f8fafc;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border: #e2e8f0;
+  --border-soft: #f1f5f9;
+  --radius-card: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}

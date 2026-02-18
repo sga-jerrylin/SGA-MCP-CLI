@@ -12,7 +12,12 @@
   const appStore = useAppStore();
 
   const themeConfig = computed(() => ({
-    algorithm: appStore.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm
+    algorithm: appStore.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+    token: {
+      colorPrimary: '#2563eb',
+      borderRadius: 8,
+      fontFamily: "'Inter', system-ui, sans-serif"
+    }
   }));
 </script>
 
