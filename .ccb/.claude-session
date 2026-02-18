@@ -1,5 +1,5 @@
 {
-  "session_id": "ai-1771330544-16432",
+  "session_id": "ai-1771396232-19916",
   "ccb_project_id": "27e65b0c783f1e1b79f2ae87956ab91019a7aca3a8c3713a44d10a3fe61f7003",
   "work_dir": "E:\\mcp",
   "work_dir_norm": "e:/mcp",
@@ -7,13 +7,13 @@
   "terminal": "wezterm",
   "active": true,
   "started_at": "2026-02-15 00:05:09",
-  "updated_at": "2026-02-17 20:31:53",
+  "updated_at": "2026-02-18 15:01:34",
   "pane_id": "0",
   "pane_title_marker": "CCB-Claude",
-  "ended_at": "2026-02-17 20:13:04",
+  "ended_at": "2026-02-18 14:28:19",
   "claude_session_path": "C:\\Users\\Administrator\\.claude\\projects\\e--mcp\\be3f9b51-ff31-48b5-9839-58bec4639b0a.jsonl",
   "claude_session_id": "be3f9b51-ff31-48b5-9839-58bec4639b0a",
   "old_claude_session_id": "0c3bd01f-56e4-4d6a-ad7a-bf81ee04ade7",
   "old_claude_session_path": "C:\\Users\\Administrator\\.claude\\projects\\e--mcp\\0c3bd01f-56e4-4d6a-ad7a-bf81ee04ade7.jsonl",
-  "old_updated_at": "2026-02-17 20:21:21"
+  "old_updated_at": "2026-02-18 14:31:04"
 }

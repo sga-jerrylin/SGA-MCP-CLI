@@ -1,0 +1,1 @@
+{"version":3,"file":"token-budget.js","sourceRoot":"","sources":["token-budget.ts"],"names":[],"mappings":";;AAMA,4CAOC;AAPD,SAAgB,gBAAgB,CAAC,eAAuB,EAAE,SAAS,GAAG,IAAI;IACxE,MAAM,SAAS,GAAG,IAAI,CAAC,IAAI,CAAC,eAAe,CAAC,MAAM,GAAG,CAAC,CAAC,CAAC;IACxD,OAAO;QACL,SAAS;QACT,SAAS;QACT,UAAU,EAAE,SAAS,GAAG,SAAS;KAClC,CAAC;AACJ,CAAC"}

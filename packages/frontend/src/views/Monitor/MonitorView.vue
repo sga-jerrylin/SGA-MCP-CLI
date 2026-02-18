@@ -19,7 +19,7 @@
           >
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'status'">
-                <a-tag :color="statusColorMap[record.status as RunStatus]">
+                <a-tag :color="statusColorMap[record.status as AgentRunStatus]">
                   {{ record.status.toUpperCase() }}
                 </a-tag>
               </template>
@@ -58,17 +58,7 @@
   import dayjs from 'dayjs';
   import http from '@/utils/http';
   import { useSse } from '@/hooks/useSse';
-  import type { ApiResponse, SseEvent, SseLogEvent } from '@mcp-claw/shared';
-
-  type RunStatus = 'running' | 'done' | 'error';
-
-  interface AgentRun {
-    runId: string;
-    root: string;
-    status: RunStatus;
-    startedAt: string;
-    eventCount: number;
-  }
+  import type { ApiResponse, SseEvent, SseLogEvent, AgentRun, AgentRunStatus } from '@mcp-claw/shared';
 
   const runs = ref<AgentRun[]>([]);
   const loading = ref(false);
@@ -84,7 +74,7 @@
     { title: 'Events', dataIndex: 'eventCount', key: 'eventCount', width: 80 }
   ];
 
-  const statusColorMap: Record<RunStatus, string> = {
+  const statusColorMap: Record<AgentRunStatus, string> = {
     running: 'blue',
     done: 'green',
     error: 'red'

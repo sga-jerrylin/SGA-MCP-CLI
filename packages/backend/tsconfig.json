@@ -4,7 +4,13 @@
     "rootDir": ".",
     "outDir": "dist",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "paths": {
+      "@mcp-claw/shared": ["packages/shared/dist/types/api"],
+      "@mcp-claw/shared/*": ["packages/shared/dist/*"],
+      "@mcp-claw/core": ["packages/core/dist/index"],
+      "@mcp-claw/core/*": ["packages/core/dist/*"]
+    }
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

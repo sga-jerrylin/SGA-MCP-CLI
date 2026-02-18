@@ -1,0 +1,225 @@
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { Command } from 'commander';
+import chalk from 'chalk';
+
+import { OpenRouterProvider } from '../llm/llm-client';
+
+const MODEL_IDS = [
+  'anthropic/claude-opus-4.6',
+  'anthropic/claude-sonnet-4.5',
+  'anthropic/claude-haiku-4.5',
+  'openai/gpt-5.2-codex',
+  'google/gemini-3-flash-preview',
+  'z-ai/glm-5',
+  'moonshotai/kimi-k2.5',
+  'minimax/minimax-m2.5'
+] as const;
+
+const MODEL_ID_SET = new Set<string>(MODEL_IDS);
+const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
+
+type Logger = Pick<Console, 'log' | 'error'>;
+
+interface EnvFileState {
+  path: string;
+  lines: string[];
+  values: Map<string, string>;
+}
+
+interface ConfigValues {
+  parserModel: string;
+  coderModel: string;
+  agentModel: string;
+  apiKey: string;
+  baseUrl: string;
+}
+
+interface SetConfigOptions {
+  parser?: string;
+  coder?: string;
+  agent?: string;
+  key?: string;
+}
+
+function findEnvPath(startDir: string, maxLevels = 4): string {
+  let currentDir = resolve(startDir);
+
+  for (let level = 0; level <= maxLevels; level += 1) {
+    const candidate = resolve(currentDir, '.env');
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = dirname(currentDir);
+    if (parent === currentDir) {
+      break;
+    }
+    currentDir = parent;
+  }
+
+  throw new Error('Unable to locate .env file from current directory (searched up to 4 levels).');
+}
+
+function parseEnvState(path: string): EnvFileState {
+  const content = readFileSync(path, 'utf8');
+  const lines = content.split(/\r?\n/);
+  const values = new Map<string, string>();
+
+  for (const line of lines) {
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match) {
+      continue;
+    }
+    values.set(match[1], match[2]);
+  }
+
+  return { path, lines, values };
+}
+
+function writeEnvState(state: EnvFileState): void {
+  writeFileSync(state.path, `${state.lines.join('\n')}\n`, 'utf8');
+}
+
+function upsertEnvKey(state: EnvFileState, key: string, value: string): void {
+  const lineRegex = new RegExp(`^${key}=.*$`);
+  const serialized = `${key}=${value}`;
+  const existingIndex = state.lines.findIndex((line) => lineRegex.test(line));
+
+  if (existingIndex >= 0) {
+    state.lines[existingIndex] = serialized;
+  } else {
+    state.lines.push(serialized);
+  }
+
+  state.values.set(key, value);
+}
+
+function currentConfig(state: EnvFileState): ConfigValues {
+  return {
+    parserModel: state.values.get('LLM_PARSER_MODEL') ?? '',
+    coderModel: state.values.get('LLM_CODER_MODEL') ?? '',
+    agentModel: state.values.get('LLM_AGENT_MODEL') ?? '',
+    apiKey: state.values.get('OPENROUTER_API_KEY') ?? '',
+    baseUrl: state.values.get('OPENROUTER_BASE_URL') ?? DEFAULT_BASE_URL
+  };
+}
+
+function validateModel(model: string, optionName: string): void {
+  if (!MODEL_ID_SET.has(model)) {
+    throw new Error(
+      `Invalid ${optionName} model: ${model}\nAllowed models:\n- ${MODEL_IDS.join('\n- ')}`
+    );
+  }
+}
+
+export function showConfig(logger: Logger = console, cwd = process.cwd()): void {
+  const envPath = findEnvPath(cwd);
+  const state = parseEnvState(envPath);
+  const config = currentConfig(state);
+
+  const rows: Array<[string, string]> = [
+    ['OPENROUTER_BASE_URL', config.baseUrl],
+    ['LLM_PARSER_MODEL', config.parserModel],
+    ['LLM_CODER_MODEL', config.coderModel],
+    ['LLM_AGENT_MODEL', config.agentModel],
+    ['OPENROUTER_API_KEY', config.apiKey]
+  ];
+
+  const keyWidth = Math.max(...rows.map(([key]) => key.length));
+  logger.log(chalk.gray(`.env: ${envPath}`));
+  for (const [key, value] of rows) {
+    const shownValue = value.length > 0 ? value : '(empty)';
+    logger.log(`${chalk.cyan(key.padEnd(keyWidth))} = ${chalk.green(shownValue)}`);
+  }
+}
+
+export function setConfig(
+  options: SetConfigOptions,
+  logger: Logger = console,
+  cwd = process.cwd()
+): void {
+  const envPath = findEnvPath(cwd);
+  const state = parseEnvState(envPath);
+
+  const updates: Array<[string, string]> = [];
+
+  if (typeof options.parser === 'string') {
+    validateModel(options.parser, '--parser');
+    updates.push(['LLM_PARSER_MODEL', options.parser]);
+  }
+
+  if (typeof options.coder === 'string') {
+    validateModel(options.coder, '--coder');
+    updates.push(['LLM_CODER_MODEL', options.coder]);
+  }
+
+  if (typeof options.agent === 'string') {
+    validateModel(options.agent, '--agent');
+    updates.push(['LLM_AGENT_MODEL', options.agent]);
+  }
+
+  if (typeof options.key === 'string') {
+    updates.push(['OPENROUTER_API_KEY', options.key]);
+  }
+
+  if (updates.length === 0) {
+    throw new Error('No config field specified. Use --parser, --coder, --agent, or --key.');
+  }
+
+  for (const [key, value] of updates) {
+    upsertEnvKey(state, key, value);
+  }
+
+  writeEnvState(state);
+  logger.log(chalk.green(`Updated ${updates.length} setting(s) in ${envPath}`));
+}
+
+export async function testConfig(logger: Logger = console, cwd = process.cwd()): Promise<void> {
+  const envPath = findEnvPath(cwd);
+  const state = parseEnvState(envPath);
+  const config = currentConfig(state);
+
+  const model = config.parserModel || 'anthropic/claude-haiku-4.5';
+  const apiKey = config.apiKey;
+  const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
+
+  if (!apiKey) {
+    logger.error(chalk.red('? 连接失败: OPENROUTER_API_KEY is empty'));
+    process.exitCode = 1;
+    return;
+  }
+
+  const provider = new OpenRouterProvider('openrouter-test', model, apiKey, baseUrl);
+
+  try {
+    await provider.complete('Reply with exactly: pong');
+    logger.log(chalk.green(`? OpenRouter 连通，模型: ${model}`));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(chalk.red(`? 连接失败: ${message}`));
+    process.exitCode = 1;
+  }
+}
+
+export function registerConfigCommand(program: Command): void {
+  const config = program.command('config').description('Show and update LLM/OpenRouter configuration');
+
+  config.command('show').description('Show current model settings from .env').action(() => {
+    showConfig(console);
+  });
+
+  config
+    .command('set')
+    .description('Update one or more model settings in .env')
+    .option('--parser <model>', 'Set LLM_PARSER_MODEL')
+    .option('--coder <model>', 'Set LLM_CODER_MODEL')
+    .option('--agent <model>', 'Set LLM_AGENT_MODEL')
+    .option('--key <apiKey>', 'Set OPENROUTER_API_KEY')
+    .action((options: SetConfigOptions) => {
+      setConfig(options, console);
+    });
+
+  config.command('test').description('Test OpenRouter connectivity').action(async () => {
+    await testConfig(console);
+  });
+}

@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 
+import { registerConfigCommand } from './commands/config.command';
 import { runCommand } from './commands/run.command';
 
 export function createCli(): Command {
@@ -13,9 +14,12 @@ export function createCli(): Command {
     .command('run')
     .description('Run MCP Claw agent loop')
     .requiredOption('--root <path>', 'Workspace root path')
-    .action(async (options: { root: string }) => {
-      await runCommand({ root: options.root, logger: console });
+    .option('--report-to <url>', 'Backend URL for progress reporting')
+    .action(async (options: { root: string; reportTo?: string }) => {
+      await runCommand({ root: options.root, logger: console, reportTo: options.reportTo });
     });
+
+  registerConfigCommand(program);
 
   return program;
 }

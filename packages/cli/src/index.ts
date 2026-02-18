@@ -7,6 +7,7 @@ export * from './tools/fs-tool';
 export * from './tools/docker-tool';
 export * from './tools/http-tool';
 export * from './llm/llm-client';
+export * from './commands/config.command';
 export * from './agents/explorer/explorer.agent';
 export * from './agents/architect/ir-generator';
 export * from './agents/architect/shard-planner';

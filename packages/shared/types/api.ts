@@ -292,6 +292,16 @@ export interface MemoryPoint {
   totalMb: number;
 }
 
+export type AgentRunStatus = 'running' | 'done' | 'error';
+
+export interface AgentRun {
+  runId: string;
+  root: string;
+  status: AgentRunStatus;
+  startedAt: string;
+  eventCount: number;
+}
+
 export interface Metrics {
   summary: {
     totalServers: number;

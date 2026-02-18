@@ -2,7 +2,7 @@ import type { IR } from '../ir/ir';
 import { buildCodegenPrompt } from './prompt-builder';
 
 describe('buildCodegenPrompt', () => {
-  it('builds deterministic sections from IR', () => {
+  it('builds strict generation prompt with IR/tool details', () => {
     const ir: IR = {
       system: {
         code: 'crm-api',
@@ -17,16 +17,37 @@ describe('buildCodegenPrompt', () => {
           path: '/customers',
           needsConfirmation: false,
           isAsync: false,
-          params: []
+          params: [
+            {
+              name: 'tenantId',
+              type: 'string',
+              required: true,
+              description: 'Tenant identifier'
+            },
+            {
+              name: 'limit',
+              type: 'number',
+              required: false,
+              description: 'Maximum number of records'
+            }
+          ]
         }
       ]
     };
 
     const prompt = buildCodegenPrompt(ir);
 
-    expect(prompt).toContain('System: crm-api');
-    expect(prompt).toContain('BaseURL: https://crm.example.com');
-    expect(prompt).toContain('AuthType: oauth2');
-    expect(prompt).toContain('Tools: listCustomers');
+    expect(prompt).toContain('Task: Generate a TypeScript Node.js MCP server package');
+    expect(prompt).toContain('- system.code: crm-api');
+    expect(prompt).toContain('- system.baseUrl: https://crm.example.com');
+    expect(prompt).toContain('- system.authType: oauth2');
+    expect(prompt).toContain('- name: listCustomers');
+    expect(prompt).toContain('- method: GET');
+    expect(prompt).toContain('- path: /customers');
+    expect(prompt).toContain('- param: tenantId, type: string, required, description: Tenant identifier');
+    expect(prompt).toContain('- param: limit, type: number, optional, description: Maximum number of records');
+    expect(prompt).toContain('===FILE===');
+    expect(prompt).toContain('src/index.ts');
+    expect(prompt).toContain('STRICT OUTPUT FORMAT (MANDATORY)');
   });
 });

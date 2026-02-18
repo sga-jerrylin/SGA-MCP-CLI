@@ -1,15 +1,18 @@
 {
-  "session_id": "ai-1771330544-16432",
+  "session_id": "ai-1771396232-19916",
   "ccb_project_id": "27e65b0c783f1e1b79f2ae87956ab91019a7aca3a8c3713a44d10a3fe61f7003",
-  "runtime_dir": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\claude-ai-Administrator\\ai-1771330544-16432\\gemini",
+  "runtime_dir": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\claude-ai-Administrator\\ai-1771396232-19916\\gemini",
   "terminal": "wezterm",
   "tmux_session": null,
-  "pane_id": "6",
+  "pane_id": "4",
   "pane_title_marker": "CCB-Gemini",
   "work_dir": "E:\\mcp",
   "work_dir_norm": "e:/mcp",
   "start_dir": "E:\\mcp",
   "active": true,
-  "started_at": "2026-02-17 20:15:45",
-  "start_cmd": "Set-Location -Path 'E:\\mcp'; gemini --resume latest; $code = $LASTEXITCODE; Write-Host \"`n[gemini] exited with code $code. Press Enter to close...\"; Read-Host; exit $code"
+  "started_at": "2026-02-18 14:30:33",
+  "start_cmd": "Set-Location -Path 'E:\\mcp'; gemini --resume latest; $code = $LASTEXITCODE; Write-Host \"`n[gemini] exited with code $code. Press Enter to close...\"; Read-Host; exit $code",
+  "gemini_session_path": "C:\\Users\\Administrator\\.gemini\\tmp\\83c5bb1727c274d6487919c87f511597f5fd3e2a185c03d5b95f9e11c8817051\\chats\\session-2026-02-15T13-25-e06eea64.json",
+  "gemini_project_hash": "83c5bb1727c274d6487919c87f511597f5fd3e2a185c03d5b95f9e11c8817051",
+  "gemini_session_id": "e06eea64-13a3-4f5d-b789-ad5abc68acf7"
 }

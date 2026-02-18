@@ -39,6 +39,10 @@ export class AuthGuard implements CanActivate {
       return method === 'GET';
     }
 
+    if (path.startsWith('/api/monitor/cli-runs')) {
+      return method === 'POST' || method === 'GET';
+    }
+
     return this.pathWhitelist.has(path);
   }
 
