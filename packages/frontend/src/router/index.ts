@@ -37,6 +37,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Library' }
       },
       {
+        path: 'monitor',
+        name: 'Monitor',
+        component: () => import('@/views/Monitor/MonitorView.vue'),
+        meta: { title: 'Monitor' }
+      },
+      {
         path: 'repository',
         name: 'Repository',
         component: () => import('@/views/Repository/RepoView.vue'),

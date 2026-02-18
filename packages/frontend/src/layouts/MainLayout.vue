@@ -41,6 +41,10 @@
           <template #icon><AppstoreOutlined /></template>
           <span>配置仓库</span>
         </a-menu-item>
+        <a-menu-item key="monitor">
+          <template #icon><LineChartOutlined /></template>
+          <span>运行监控</span>
+        </a-menu-item>
 
         <a-sub-menu key="admin">
           <template #icon><SettingOutlined /></template>
@@ -82,7 +86,8 @@
     AppstoreOutlined,
     SettingOutlined,
     ToolOutlined,
-    DeploymentUnitOutlined
+    DeploymentUnitOutlined,
+    LineChartOutlined
   } from '@ant-design/icons-vue';
   import { useAppStore } from '@/store/app';
 
@@ -101,6 +106,7 @@
     if (path.startsWith('/runtime/servers')) return 'servers';
     if (path.startsWith('/runtime/deploy')) return 'deploy';
     if (path.startsWith('/repository')) return 'repository';
+    if (path.startsWith('/monitor')) return 'monitor';
     if (path.startsWith('/admin/tenants')) return 'tenants';
     if (path.startsWith('/settings/ai')) return 'ai-settings';
     return 'dashboard';
@@ -121,6 +127,7 @@
     servers: '/runtime/servers',
     deploy: '/runtime/deploy',
     repository: '/repository',
+    monitor: '/monitor',
     tenants: '/admin/tenants',
     'ai-settings': '/settings/ai'
   };
