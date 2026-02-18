@@ -1,11 +1,11 @@
 import type {
   ApiResponse,
   DeployExecuteRequest,
-  DeployPreviewRequest,
   DeployPreview,
+  DeployPreviewRequest,
   DeployTask
 } from '@mcp-claw/shared';
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { DeployService } from './deploy.service';
 
 @Controller('deploy')
@@ -13,20 +13,29 @@ export class DeployController {
   public constructor(private readonly deployService: DeployService) {}
 
   @Post('preview')
-  public preview(@Body() req: DeployPreviewRequest): ApiResponse<DeployPreview> {
+  public async preview(@Body() req: DeployPreviewRequest): Promise<ApiResponse<DeployPreview>> {
     return {
       code: 0,
       message: 'ok',
-      data: this.deployService.preview(req)
+      data: await this.deployService.preview(req)
     };
   }
 
   @Post('execute')
-  public execute(@Body() req: DeployExecuteRequest): ApiResponse<DeployTask> {
+  public async execute(@Body() req: DeployExecuteRequest): Promise<ApiResponse<DeployTask>> {
     return {
       code: 0,
       message: 'ok',
-      data: this.deployService.execute(req)
+      data: await this.deployService.execute(req)
+    };
+  }
+
+  @Get('tasks/:id')
+  public getTask(@Param('id') id: string): ApiResponse<DeployTask> {
+    return {
+      code: 0,
+      message: 'ok',
+      data: this.deployService.getTask(id)
     };
   }
 }

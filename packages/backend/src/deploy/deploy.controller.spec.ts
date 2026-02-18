@@ -16,30 +16,39 @@ describe('DeployController', () => {
   };
 
   let service: {
-    preview: jest.Mock<DeployPreview, [{ serverIds: string[] }]>;
-    execute: jest.Mock<DeployTask, [{ serverIds: string[]; composeOverride?: string }]>;
+    preview: jest.Mock<Promise<DeployPreview>, [{ serverIds: string[] }]>;
+    execute: jest.Mock<Promise<DeployTask>, [{ serverIds: string[]; composeOverride?: string }]>;
+    getTask: jest.Mock<DeployTask, [string]>;
   };
   let controller: DeployController;
 
   beforeEach(() => {
     service = {
-      preview: jest.fn().mockReturnValue(preview),
-      execute: jest.fn().mockReturnValue(task)
+      preview: jest.fn().mockResolvedValue(preview),
+      execute: jest.fn().mockResolvedValue(task),
+      getTask: jest.fn().mockReturnValue(task)
     };
     controller = new DeployController(service as unknown as DeployService);
   });
 
-  it('builds preview from body serverIds', () => {
-    const response = controller.preview({ serverIds: ['s1', 's2'] });
+  it('builds preview from body serverIds', async () => {
+    const response = await controller.preview({ serverIds: ['s1', 's2'] });
 
     expect(service.preview).toHaveBeenCalledWith({ serverIds: ['s1', 's2'] });
     expect(response.data.servers).toHaveLength(1);
   });
 
-  it('delegates execute request', () => {
-    const response = controller.execute({ serverIds: ['s1'] });
+  it('delegates execute request', async () => {
+    const response = await controller.execute({ serverIds: ['s1'] });
 
     expect(service.execute).toHaveBeenCalledWith({ serverIds: ['s1'] });
     expect(response.data.status).toBe('pending');
+  });
+
+  it('returns deploy task by id', () => {
+    const response = controller.getTask('deploy-1');
+
+    expect(service.getTask).toHaveBeenCalledWith('deploy-1');
+    expect(response.data.id).toBe('deploy-1');
   });
 });
