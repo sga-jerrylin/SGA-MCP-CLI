@@ -26,11 +26,11 @@ export class MonitorController {
   public constructor(private readonly monitorService: MonitorService) {}
 
   @Get('metrics')
-  public getMetrics(): ApiResponse<SystemMetricsSnapshot> {
+  public async getMetrics(): Promise<ApiResponse<SystemMetricsSnapshot>> {
     return {
       code: 0,
       message: 'ok',
-      data: this.monitorService.getMetrics()
+      data: await this.monitorService.getMetrics()
     };
   }
 
@@ -119,11 +119,11 @@ export class MonitorController {
   }
 
   @Get('dashboard')
-  public getDashboard(): ApiResponse<DashboardSummary> {
+  public async getDashboard(): Promise<ApiResponse<DashboardSummary>> {
     return {
       code: 0,
       message: 'ok',
-      data: this.monitorService.getDashboardSummary()
+      data: await this.monitorService.getDashboardSummary()
     };
   }
 }

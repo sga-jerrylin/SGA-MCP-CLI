@@ -33,7 +33,7 @@ describe('SyncService', () => {
       }
     });
 
-    expect((minio as unknown as { putObject: jest.Mock }).putObject).toHaveBeenCalledTimes(1);
+    expect((minio as unknown as { putObject: jest.Mock }).putObject).toHaveBeenCalledTimes(2);
     expect(response.packageId).toBe('pkg-1');
     expect(response.deployed).toBe(true);
   });

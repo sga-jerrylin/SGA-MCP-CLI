@@ -1,5 +1,6 @@
 import type { Package, SyncPushResponse } from '@mcp-claw/shared';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { invalidateRepoCatalog } from '../repo/repo.service';
 import { MinioService } from '../storage/minio.service';
 
 export interface SyncPushMetadata {
@@ -21,10 +22,24 @@ export class SyncService {
 
   public async push(input: SyncPushInput): Promise<SyncPushResponse> {
     const { metadata, tarball } = input;
-    const objectKey = `packages/${metadata.packageId}/package.tgz`;
+    const tarballKey = `packages/${metadata.packageId}/package.tgz`;
+    const manifestKey = `packages/${metadata.packageId}/manifest.json`;
+    const sidecar = Buffer.from(
+      JSON.stringify(
+        {
+          packageId: metadata.packageId,
+          manifest: metadata.manifest,
+          pushedAt: new Date().toISOString()
+        },
+        null,
+        2
+      )
+    );
 
-    await this.minio.putObject('packages', objectKey, tarball);
+    await this.minio.putObject('packages', tarballKey, tarball);
+    await this.minio.putObject('packages', manifestKey, sidecar);
     this.manifests.set(metadata.packageId, metadata.manifest);
+    invalidateRepoCatalog();
 
     return {
       packageId: metadata.packageId,
@@ -40,16 +55,37 @@ export class SyncService {
   }
 
   public async pull(packageId: string): Promise<{ tarball: Buffer; manifest: Package }> {
-    const manifest = this.manifests.get(packageId);
-    if (!manifest) {
+    const tarballKey = `packages/${packageId}/package.tgz`;
+    const stream = await this.minio.getObject('packages', tarballKey);
+    const tarball = await this.readStream(stream);
+    const manifest = await this.loadManifest(packageId);
+
+    return { tarball, manifest };
+  }
+
+  private async loadManifest(packageId: string): Promise<Package> {
+    const cached = this.manifests.get(packageId);
+    if (cached) {
+      return cached;
+    }
+
+    const manifestKey = `packages/${packageId}/manifest.json`;
+    const stream = await this.minio.getObject('packages', manifestKey).catch(() => null);
+    if (!stream) {
       throw new NotFoundException(`Package ${packageId} not found`);
     }
 
-    const objectKey = `packages/${packageId}/package.tgz`;
-    const stream = await this.minio.getObject('packages', objectKey);
-    const tarball = await this.readStream(stream);
+    const buffer = await this.readStream(stream);
+    const parsed = JSON.parse(buffer.toString('utf8')) as {
+      packageId?: string;
+      manifest?: Package;
+    };
+    if (!parsed.manifest) {
+      throw new NotFoundException(`Package ${packageId} not found`);
+    }
 
-    return { tarball, manifest };
+    this.manifests.set(packageId, parsed.manifest);
+    return parsed.manifest;
   }
 
   private async readStream(stream: NodeJS.ReadableStream): Promise<Buffer> {

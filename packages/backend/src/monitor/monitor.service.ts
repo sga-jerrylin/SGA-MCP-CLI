@@ -1,6 +1,7 @@
 import type { PaginatedList, SseEvent } from '@mcp-claw/shared';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Subject } from 'rxjs';
+import { RuntimeService } from '../runtime/runtime.service';
 
 export interface AuditLog {
   id: string;
@@ -67,6 +68,8 @@ export interface DashboardSummary {
 
 @Injectable()
 export class MonitorService {
+  public constructor(private readonly runtimeService: RuntimeService) {}
+
   private readonly auditLogs: AuditLog[] = [
     {
       id: 'audit-1',
@@ -88,15 +91,17 @@ export class MonitorService {
   private readonly eventStreams = new Map<string, Subject<SseEvent>>();
   private readonly toolCalls: ToolCallRecord[] = this.createMockToolCalls();
 
-  public getMetrics(): SystemMetricsSnapshot {
+  public async getMetrics(): Promise<SystemMetricsSnapshot> {
     const memoryUsage = process.memoryUsage();
+    const servers = await this.runtimeService.listServers().catch(() => []);
+    const totalServers = servers.length;
 
     return {
       uptime: Math.floor(process.uptime()),
       memUsed: memoryUsage.heapUsed,
       activeRequests: 0,
-      totalPackages: 2,
-      totalServers: 13
+      totalPackages: totalServers,
+      totalServers
     };
   }
 
@@ -250,7 +255,7 @@ export class MonitorService {
       }));
   }
 
-  public getDashboardSummary(): DashboardSummary {
+  public async getDashboardSummary(): Promise<DashboardSummary> {
     const now = Date.now();
     const oneDayMs = 24 * 60 * 60 * 1000;
     const since = now - oneDayMs;
@@ -273,8 +278,9 @@ export class MonitorService {
       });
     }
 
-    const activeServers = new Set(callsLast24h.map((call) => call.serverId)).size;
-    const metrics = this.getMetrics();
+    const activeServersByCalls = new Set(callsLast24h.map((call) => call.serverId)).size;
+    const metrics = await this.getMetrics();
+    const activeServers = Math.min(activeServersByCalls, metrics.totalServers);
 
     return {
       topTools: this.getToolStats(),

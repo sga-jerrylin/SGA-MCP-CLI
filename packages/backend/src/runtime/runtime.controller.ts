@@ -7,29 +7,29 @@ export class RuntimeController {
   public constructor(private readonly runtimeService: RuntimeService) {}
 
   @Get('servers')
-  public listServers(): ApiResponse<McpServer[]> {
+  public async listServers(): Promise<ApiResponse<McpServer[]>> {
     return {
       code: 0,
       message: 'ok',
-      data: this.runtimeService.listServers()
+      data: await this.runtimeService.listServers()
     };
   }
 
   @Get('servers/:id')
-  public getServer(@Param('id') id: string): ApiResponse<McpServerDetail> {
+  public async getServer(@Param('id') id: string): Promise<ApiResponse<McpServerDetail>> {
     return {
       code: 0,
       message: 'ok',
-      data: this.runtimeService.getServer(id)
+      data: await this.runtimeService.getServer(id)
     };
   }
 
   @Get('servers/:id/tools')
-  public listTools(@Param('id') id: string): ApiResponse<ToolsListResponse> {
+  public async listTools(@Param('id') id: string): Promise<ApiResponse<ToolsListResponse>> {
     return {
       code: 0,
       message: 'ok',
-      data: this.runtimeService.listTools(id)
+      data: await this.runtimeService.listTools(id)
     };
   }
 }

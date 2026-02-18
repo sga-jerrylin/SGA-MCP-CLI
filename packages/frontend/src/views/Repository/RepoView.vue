@@ -3,7 +3,7 @@
     <div class="search-section">
       <a-input-search
         v-model:value="searchText"
-        placeholder="搜索 MCP 配置包..."
+        placeholder="搜索 MCP 服务包..."
         enter-button="搜索"
         size="large"
         @search="fetchPackages"
@@ -62,22 +62,28 @@
   import http from '@/utils/http';
   import type { ApiResponse, PaginatedList, Package } from '@mcp-claw/shared';
 
+  interface InstallPackageResponse {
+    packageId: string;
+    pullUrl: string;
+    manifest: Package;
+  }
+
   const searchText = ref('');
   const activeCat = ref('全部');
   const packages = ref<Package[]>([]);
   const loading = ref(false);
-  const categories = ['全部', 'ERP', 'CRM', '通信', 'AI模型', '文档', '办公工具'];
+  const categories = ['全部', 'ERP', 'CRM', '通用', 'AI模型', '文档', '办公工具'];
 
   const pagination = ref({
     onChange: (page: number) => {
-      fetchPackages(page);
+      void fetchPackages(page);
     },
     current: 1,
     pageSize: 12,
     total: 0
   });
 
-  const fetchPackages = async (page = 1) => {
+  const fetchPackages = async (page = 1): Promise<void> => {
     loading.value = true;
     try {
       const res = (await http.get<ApiResponse<PaginatedList<Package>>>('/repo/packages', {
@@ -99,31 +105,42 @@
     }
   };
 
-  const handleInstall = async (pkg: Package) => {
+  const handleInstall = async (pkg: Package): Promise<void> => {
     try {
-      await http.post(`/repo/packages/${pkg.id}/install`);
-      message.success(`已开始安装 ${pkg.name}`);
+      const response = (await http.post<ApiResponse<InstallPackageResponse>>(
+        `/repo/packages/${pkg.id}/install`
+      )) as unknown as ApiResponse<InstallPackageResponse>;
+
+      const storageKey = 'mcp_installed_packages';
+      const raw = localStorage.getItem(storageKey);
+      const installed = raw ? (JSON.parse(raw) as string[]) : [];
+      if (!installed.includes(response.data.packageId)) {
+        installed.push(response.data.packageId);
+        localStorage.setItem(storageKey, JSON.stringify(installed));
+      }
+
+      message.success(`包 ${pkg.name} 已就绪，可在部署页面启动`);
     } catch {
-      // 错误已由 http 拦截器处理
+      // Error handled by global http interceptor
     }
   };
 
-  const getRandomGradient = () => {
+  const getRandomGradient = (): string => {
     const gradients = [
       'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       'linear-gradient(135deg, #2af598 0%, #009efd 100%)',
       'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
       'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)'
     ];
-    return gradients[Math.floor(Math.random() * gradients.length)];
+    return gradients[Math.floor(Math.random() * gradients.length)] ?? gradients[0]!;
   };
 
   watch(activeCat, () => {
-    fetchPackages(1);
+    void fetchPackages(1);
   });
 
   onMounted(() => {
-    fetchPackages();
+    void fetchPackages();
   });
 </script>
 

@@ -1,11 +1,16 @@
 import type { PaginatedList, SseEvent } from '@mcp-claw/shared';
 import { of } from 'rxjs';
 import { MonitorController } from './monitor.controller';
-import { AgentRunSummary, AuditLog, MonitorService, SystemMetricsSnapshot } from './monitor.service';
+import {
+  AgentRunSummary,
+  AuditLog,
+  MonitorService,
+  SystemMetricsSnapshot
+} from './monitor.service';
 
 describe('MonitorController', () => {
   let service: {
-    getMetrics: jest.Mock<SystemMetricsSnapshot, []>;
+    getMetrics: jest.Mock<Promise<SystemMetricsSnapshot>, []>;
     getAuditLogs: jest.Mock<PaginatedList<AuditLog>, [number, number]>;
     createRun: jest.Mock<string, [string]>;
     appendEvent: jest.Mock<void, [string, SseEvent]>;
@@ -17,7 +22,7 @@ describe('MonitorController', () => {
 
   beforeEach(() => {
     service = {
-      getMetrics: jest.fn().mockReturnValue({
+      getMetrics: jest.fn().mockResolvedValue({
         uptime: 100,
         memUsed: 1000,
         activeRequests: 0,
@@ -70,8 +75,8 @@ describe('MonitorController', () => {
     controller = new MonitorController(service as unknown as MonitorService);
   });
 
-  it('returns wrapped metrics', () => {
-    const response = controller.getMetrics();
+  it('returns wrapped metrics', async () => {
+    const response = await controller.getMetrics();
     expect(service.getMetrics).toHaveBeenCalledTimes(1);
     expect(response.code).toBe(0);
     expect(response.data.totalServers).toBe(13);

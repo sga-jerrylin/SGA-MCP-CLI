@@ -143,7 +143,7 @@ export type SseEvent =
 
 // ── Runtime (MCP Servers) ───────────────────
 
-export type ServerStatus = 'healthy' | 'degraded' | 'stopped' | 'deploying';
+export type ServerStatus = 'pending' | 'healthy' | 'degraded' | 'stopped' | 'deploying';
 
 export interface McpServer {
   id: string;

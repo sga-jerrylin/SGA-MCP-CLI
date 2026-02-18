@@ -7,33 +7,33 @@ export class RepoController {
   public constructor(private readonly repoService: RepoService) {}
 
   @Get('packages')
-  public listPackages(
+  public async listPackages(
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string
-  ): ApiResponse<PaginatedList<Package>> {
+  ): Promise<ApiResponse<PaginatedList<Package>>> {
     const parsedPage = Number(page ?? '1');
     const parsedPageSize = Number(pageSize ?? '20');
 
     return {
       code: 0,
       message: 'ok',
-      data: this.repoService.listPackages(parsedPage, parsedPageSize)
+      data: await this.repoService.listPackages(parsedPage, parsedPageSize)
     };
   }
 
   @Get('packages/:id')
-  public getPackage(@Param('id') id: string): ApiResponse<Package> {
+  public async getPackage(@Param('id') id: string): Promise<ApiResponse<Package>> {
     return {
       code: 0,
       message: 'ok',
-      data: this.repoService.getPackage(id)
+      data: await this.repoService.getPackage(id)
     };
   }
 
   @Post('packages/:id/install')
   public async installPackage(
     @Param('id') id: string
-  ): Promise<ApiResponse<{ downloadUrl: string }>> {
+  ): Promise<ApiResponse<{ packageId: string; pullUrl: string; manifest: Package }>> {
     return {
       code: 0,
       message: 'ok',

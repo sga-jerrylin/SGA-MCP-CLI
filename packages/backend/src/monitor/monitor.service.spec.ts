@@ -1,17 +1,42 @@
+import type { McpServer } from '@mcp-claw/shared';
+import { RuntimeService } from '../runtime/runtime.service';
 import { MonitorService } from './monitor.service';
 
 describe('MonitorService', () => {
-  it('returns runtime metrics', () => {
-    const service = new MonitorService();
-    const metrics = service.getMetrics();
+  const runtimeServer: McpServer = {
+    id: 'pkg-crm',
+    name: 'CRM Package',
+    shardIndex: 1,
+    status: 'healthy',
+    toolCount: 2,
+    tokenUsage: 240,
+    tokenBudget: 8000,
+    endpoint: 'http://localhost:8081',
+    port: 8081,
+    createdAt: '2026-02-19T00:10:00.000Z'
+  };
+
+  function createService(serverCount = 1): MonitorService {
+    const runtime = {
+      listServers: jest
+        .fn()
+        .mockResolvedValue(Array.from({ length: serverCount }, () => runtimeServer))
+    } as unknown as RuntimeService;
+    return new MonitorService(runtime);
+  }
+
+  it('returns runtime metrics', async () => {
+    const service = createService(1);
+    const metrics = await service.getMetrics();
 
     expect(metrics.uptime).toBeGreaterThanOrEqual(0);
     expect(metrics.memUsed).toBeGreaterThan(0);
-    expect(metrics.totalServers).toBe(13);
+    expect(metrics.totalServers).toBe(1);
+    expect(metrics.totalPackages).toBe(1);
   });
 
   it('returns paginated audit logs', () => {
-    const service = new MonitorService();
+    const service = createService();
     const result = service.getAuditLogs(1, 1);
 
     expect(result.items).toHaveLength(1);
@@ -21,7 +46,7 @@ describe('MonitorService', () => {
   });
 
   it('creates and lists CLI runs', () => {
-    const service = new MonitorService();
+    const service = createService();
     const runId = service.createRun('E:/mcp');
     const runs = service.getRuns();
 
@@ -32,7 +57,7 @@ describe('MonitorService', () => {
   });
 
   it('appends events and updates run status', () => {
-    const service = new MonitorService();
+    const service = createService();
     const runId = service.createRun('E:/mcp');
 
     service.appendEvent(runId, {
@@ -54,7 +79,7 @@ describe('MonitorService', () => {
   });
 
   it('returns events and supports live stream for a run', (done) => {
-    const service = new MonitorService();
+    const service = createService();
     const runId = service.createRun('E:/mcp');
 
     service.appendEvent(runId, {

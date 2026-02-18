@@ -24,24 +24,31 @@ describe('RepoController', () => {
   };
 
   let service: {
-    listPackages: jest.Mock<PaginatedList<Package>, [number, number]>;
-    getPackage: jest.Mock<Package, [string]>;
-    installPackage: jest.Mock<Promise<{ downloadUrl: string }>, [string]>;
+    listPackages: jest.Mock<Promise<PaginatedList<Package>>, [number, number]>;
+    getPackage: jest.Mock<Promise<Package>, [string]>;
+    installPackage: jest.Mock<
+      Promise<{ packageId: string; pullUrl: string; manifest: Package }>,
+      [string]
+    >;
   };
   let controller: RepoController;
 
   beforeEach(() => {
     service = {
-      listPackages: jest.fn().mockReturnValue(sampleList),
-      getPackage: jest.fn().mockReturnValue(samplePackage),
-      installPackage: jest.fn().mockResolvedValue({ downloadUrl: 'https://example.test/pkg' })
+      listPackages: jest.fn().mockResolvedValue(sampleList),
+      getPackage: jest.fn().mockResolvedValue(samplePackage),
+      installPackage: jest.fn().mockResolvedValue({
+        packageId: 'pkg-1',
+        pullUrl: '/api/sync/pull/pkg-1',
+        manifest: samplePackage
+      })
     };
 
     controller = new RepoController(service as unknown as RepoService);
   });
 
-  it('returns paginated package list', () => {
-    const response = controller.listPackages('2', '10');
+  it('returns paginated package list', async () => {
+    const response = await controller.listPackages('2', '10');
 
     expect(service.listPackages).toHaveBeenCalledWith(2, 10);
     expect(response).toEqual({
@@ -51,8 +58,8 @@ describe('RepoController', () => {
     });
   });
 
-  it('returns package detail', () => {
-    const response = controller.getPackage('pkg-1');
+  it('returns package detail', async () => {
+    const response = await controller.getPackage('pkg-1');
 
     expect(service.getPackage).toHaveBeenCalledWith('pkg-1');
     expect(response.data.id).toBe('pkg-1');
@@ -65,7 +72,11 @@ describe('RepoController', () => {
     expect(response).toEqual({
       code: 0,
       message: 'ok',
-      data: { downloadUrl: 'https://example.test/pkg' }
+      data: {
+        packageId: 'pkg-1',
+        pullUrl: '/api/sync/pull/pkg-1',
+        manifest: samplePackage
+      }
     });
   });
 });
