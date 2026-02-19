@@ -17,6 +17,8 @@ import { BuilderAgent } from '../agents/builder/builder.agent';
 import { CoreCodegenAdapter } from '../agents/builder/core-codegen.adapter';
 import { DependencyInstaller } from '../agents/builder/dependency-installer';
 import { ExplorerAgent } from '../agents/explorer/explorer.agent';
+import type { RunRecord } from '../memory/run-record';
+import { SessionWriter } from '../memory/session-writer';
 import { TestRunner } from '../agents/tester/test-runner';
 import { TesterSandboxAdapter } from '../agents/tester/sandbox.adapter';
 import { TesterAgent } from '../agents/tester/tester.agent';
@@ -264,6 +266,9 @@ async function createReporter(reportTo: string | undefined, root: string): Promi
 }
 
 export async function runCommand(input: RunCommandInput): Promise<void> {
+  const startTime = Date.now();
+  const source = input.urls?.[0] ?? input.root;
+  const sessionWriter = new SessionWriter();
   const reporter = await createReporter(input.reportTo, input.root);
   await reporter.reportEvent({
     type: 'log',
@@ -276,6 +281,8 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     silent: Boolean(input.dryRun)
   });
   let activeStage: 'Explorer' | 'Architect' | 'Builder' | 'Tester' | undefined;
+  let lastIr: RunRecord['ir'] | undefined;
+  let filesWritten: string[] = [];
 
   try {
     const env = loadEnvConfig(input.root);
@@ -311,6 +318,11 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     const architectDoneMessage = `planned ${architectResult.ir.tools.length} tools`;
     progress.done('Architect', architectDoneMessage);
     input.logger.log(`Architect - ${architectDoneMessage}`);
+    lastIr = {
+      system: architectResult.ir.system,
+      toolCount: architectResult.ir.tools.length,
+      toolNames: architectResult.ir.tools.map((tool) => tool.name)
+    };
 
     activeStage = 'Builder';
     progress.start('Builder', 'generating code...');
@@ -329,6 +341,7 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     const builderDoneMessage = `wrote ${builderResult.writtenFiles.length} files`;
     progress.done('Builder', builderDoneMessage);
     input.logger.log(`Builder - ${builderDoneMessage}`);
+    filesWritten = builderResult.writtenFiles;
 
     activeStage = 'Tester';
     progress.start('Tester', 'validating generated server...');
@@ -361,6 +374,21 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
       progress.fail('Tester', 'FAIL');
       input.logger.log('Tester - FAIL');
     }
+
+    if (!input.dryRun) {
+      const record: RunRecord = {
+        id: `${Date.now()}`,
+        source,
+        startedAt: new Date(startTime).toISOString(),
+        finishedAt: new Date().toISOString(),
+        status: testerResult.passed ? 'success' : 'failed',
+        ir: lastIr,
+        filesWritten,
+        durationMs: Date.now() - startTime
+      };
+      sessionWriter.write(record, input.root);
+    }
+
     activeStage = undefined;
 
     await reporter.reportEvent({
@@ -373,6 +401,26 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     if (activeStage) {
       progress.fail(activeStage, message);
       input.logger.log(`${activeStage} - ${message}`);
+    }
+
+    if (!input.dryRun) {
+      const record: RunRecord = {
+        id: `${Date.now()}`,
+        source,
+        startedAt: new Date(startTime).toISOString(),
+        finishedAt: new Date().toISOString(),
+        status: 'failed',
+        ir: lastIr,
+        filesWritten,
+        errorMessage: message,
+        durationMs: Date.now() - startTime
+      };
+
+      try {
+        sessionWriter.write(record, input.root);
+      } catch {
+        // preserving the original run failure is more important than memory persistence
+      }
     }
 
     const errorEvent: SseErrorEvent = {
