@@ -13,6 +13,7 @@ const config: Config = {
     ]
   },
   moduleNameMapper: {
+    '^chalk$': '<rootDir>/src/__mocks__/chalk.ts',
     '^@sga/core$': '<rootDir>/../core/src/index.ts',
     '^@sga/core/(.*)$': '<rootDir>/../core/src/$1',
     '^@sga/shared$': '<rootDir>/../shared/src/index.ts',
