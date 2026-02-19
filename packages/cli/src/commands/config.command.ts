@@ -1,8 +1,9 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+锘縤mport { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { Command } from 'commander';
 import chalk from 'chalk';
 
+import { DEFAULT_CONFIG_PATH, SgaConfig } from '../config/sga-config';
 import { OpenRouterProvider } from '../llm/llm-client';
 
 const MODEL_IDS = [
@@ -112,6 +113,23 @@ function validateModel(model: string, optionName: string): void {
   }
 }
 
+function parseConfigValue(raw: string): string | number | boolean {
+  const value = raw.trim();
+  const lower = value.toLowerCase();
+
+  if (lower === 'true') {
+    return true;
+  }
+  if (lower === 'false') {
+    return false;
+  }
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    return Number(value);
+  }
+
+  return raw;
+}
+
 export function showConfig(logger: Logger = console, cwd = process.cwd()): void {
   const envPath = findEnvPath(cwd);
   const state = parseEnvState(envPath);
@@ -130,6 +148,17 @@ export function showConfig(logger: Logger = console, cwd = process.cwd()): void 
   for (const [key, value] of rows) {
     const shownValue = value.length > 0 ? value : '(empty)';
     logger.log(`${chalk.cyan(key.padEnd(keyWidth))} = ${chalk.green(shownValue)}`);
+  }
+
+  const sgaConfig = new SgaConfig();
+  const allConfig = sgaConfig.getAll();
+
+  logger.log('');
+  logger.log(chalk.gray(`~/.sga/config.yaml: ${DEFAULT_CONFIG_PATH}`));
+  if (Object.keys(allConfig).length === 0) {
+    logger.log(chalk.yellow('(empty)'));
+  } else {
+    logger.log(chalk.green(JSON.stringify(allConfig, null, 2)));
   }
 }
 
@@ -174,6 +203,12 @@ export function setConfig(
   logger.log(chalk.green(`Updated ${updates.length} setting(s) in ${envPath}`));
 }
 
+export function setSgaConfig(key: string, value: string | number | boolean, logger: Logger = console): void {
+  const config = new SgaConfig();
+  config.set(key, value);
+  logger.log(chalk.green(`Updated ${key} in ${DEFAULT_CONFIG_PATH}`));
+}
+
 export async function testConfig(logger: Logger = console, cwd = process.cwd()): Promise<void> {
   const envPath = findEnvPath(cwd);
   const state = parseEnvState(envPath);
@@ -184,7 +219,7 @@ export async function testConfig(logger: Logger = console, cwd = process.cwd()):
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
 
   if (!apiKey) {
-    logger.error(chalk.red('? 连接失败: OPENROUTER_API_KEY is empty'));
+    logger.error(chalk.red('Connection failed: OPENROUTER_API_KEY is empty'));
     process.exitCode = 1;
     return;
   }
@@ -193,10 +228,10 @@ export async function testConfig(logger: Logger = console, cwd = process.cwd()):
 
   try {
     await provider.complete('Reply with exactly: pong');
-    logger.log(chalk.green(`? OpenRouter 连通，模型: ${model}`));
+    logger.log(chalk.green(`OpenRouter reachable, model: ${model}`));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error(chalk.red(`? 连接失败: ${message}`));
+    logger.error(chalk.red(`Connection failed: ${message}`));
     process.exitCode = 1;
   }
 }
@@ -204,12 +239,19 @@ export async function testConfig(logger: Logger = console, cwd = process.cwd()):
 export function registerConfigCommand(program: Command): void {
   const config = program.command('config').description('Show and update LLM/OpenRouter configuration');
 
-  config.command('show').description('Show current model settings from .env').action(() => {
+  config.command('show').description('Show settings from .env and ~/.sga/config.yaml').action(() => {
     showConfig(console);
   });
 
   config
-    .command('set')
+    .command('set <key> <value>')
+    .description('Set a key in ~/.sga/config.yaml (supports dot notation)')
+    .action((key: string, value: string) => {
+      setSgaConfig(key, parseConfigValue(value), console);
+    });
+
+  config
+    .command('set-env')
     .description('Update one or more model settings in .env')
     .option('--parser <model>', 'Set LLM_PARSER_MODEL')
     .option('--coder <model>', 'Set LLM_CODER_MODEL')
