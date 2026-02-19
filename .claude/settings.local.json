@@ -39,7 +39,9 @@
       "Bash(cask \"ping test - please reply with PONG\" --timeout 30)",
       "Bash(askd:*)",
       "Bash(gping:*)",
-      "Bash(cpend:*)"
+      "Bash(cpend:*)",
+      "Bash(git stash:*)",
+      "Bash(git commit:*)"
     ]
   },
   "model": "sonnet",
