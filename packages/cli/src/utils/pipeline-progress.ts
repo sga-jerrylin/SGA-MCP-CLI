@@ -2,24 +2,21 @@ import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 
 interface PipelineProgressOptions {
-  logger?: Pick<Console, 'log'>;
   silent?: boolean;
 }
 
 export class PipelineProgress {
   private spinner?: Ora;
-  private readonly logger: Pick<Console, 'log'>;
   private readonly silent: boolean;
 
   public constructor(options: PipelineProgressOptions = {}) {
-    this.logger = options.logger ?? console;
     this.silent = Boolean(options.silent);
   }
 
   public start(stage: string, message: string): void {
-    const text = this.format(stage, message);
+    const text = this.formatMessage(stage, message);
     if (this.silent) {
-      this.logger.log(text);
+      console.log(text);
       return;
     }
 
@@ -31,9 +28,9 @@ export class PipelineProgress {
   }
 
   public done(stage: string, message: string): void {
-    const text = this.format(stage, message);
+    const text = this.formatMessage(stage, message);
     if (this.silent) {
-      this.logger.log(`✔ ${text}`);
+      console.log(`${chalk.green('✔')} ${text}`);
       return;
     }
 
@@ -45,13 +42,13 @@ export class PipelineProgress {
       return;
     }
 
-    this.logger.log(`${chalk.green('✔')} ${text}`);
+    console.log(`${chalk.green('✔')} ${text}`);
   }
 
   public fail(stage: string, message: string): void {
-    const text = this.format(stage, message);
+    const text = this.formatMessage(stage, message);
     if (this.silent) {
-      this.logger.log(`✘ ${text}`);
+      console.log(`${chalk.red('✘')} ${text}`);
       return;
     }
 
@@ -63,10 +60,10 @@ export class PipelineProgress {
       return;
     }
 
-    this.logger.log(`${chalk.red('✘')} ${text}`);
+    console.log(`${chalk.red('✘')} ${text}`);
   }
 
-  private format(stage: string, message: string): string {
-    return `${chalk.cyan(stage.padEnd(10))} ${message}`;
+  private formatMessage(stage: string, message: string): string {
+    return `${chalk.cyan(stage)} ${message}`;
   }
 }

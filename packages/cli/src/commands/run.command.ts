@@ -262,8 +262,7 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
   });
 
   const progress = new PipelineProgress({
-    logger: input.logger,
-    silent: Boolean(input.dryRun) || input.logger !== console
+    silent: Boolean(input.dryRun)
   });
   let activeStage: 'Explorer' | 'Architect' | 'Builder' | 'Tester' | undefined;
 
@@ -284,7 +283,9 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     progress.start('Explorer', 'scanning sources...');
     const explorer = createExplorer(Boolean(input.dryRun));
     const explorerReport = await explorer.run({ root: input.root, urls });
-    progress.done('Explorer', `found ${explorerReport.files.length} files`);
+    const explorerDoneMessage = `found ${explorerReport.files.length} files`;
+    progress.done('Explorer', explorerDoneMessage);
+    input.logger.log(`Explorer - ${explorerDoneMessage}`);
 
     activeStage = 'Architect';
     progress.start('Architect', 'designing MCP tools...');
@@ -296,7 +297,9 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
         : undefined
     );
     const architectResult = await architect.run(explorerReport);
-    progress.done('Architect', `planned ${architectResult.ir.tools.length} tools`);
+    const architectDoneMessage = `planned ${architectResult.ir.tools.length} tools`;
+    progress.done('Architect', architectDoneMessage);
+    input.logger.log(`Architect - ${architectDoneMessage}`);
 
     activeStage = 'Builder';
     progress.start('Builder', 'generating code...');
@@ -312,7 +315,9 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
       root: input.root,
       planDoc: input.dryRun ? '' : JSON.stringify(architectResult.ir, null, 2)
     });
-    progress.done('Builder', `wrote ${builderResult.writtenFiles.length} files`);
+    const builderDoneMessage = `wrote ${builderResult.writtenFiles.length} files`;
+    progress.done('Builder', builderDoneMessage);
+    input.logger.log(`Builder - ${builderDoneMessage}`);
 
     activeStage = 'Tester';
     progress.start('Tester', 'validating generated server...');
@@ -339,9 +344,11 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     });
 
     if (testerResult.passed) {
-      progress.done('Tester', 'tests passed');
+      progress.done('Tester', 'PASS');
+      input.logger.log('Tester - PASS');
     } else {
-      progress.fail('Tester', 'tests failed');
+      progress.fail('Tester', 'FAIL');
+      input.logger.log('Tester - FAIL');
     }
     activeStage = undefined;
 
@@ -354,6 +361,7 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     if (activeStage) {
       progress.fail(activeStage, message);
+      input.logger.log(`${activeStage} - ${message}`);
     }
 
     const errorEvent: SseErrorEvent = {
