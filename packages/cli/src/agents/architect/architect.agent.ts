@@ -3,6 +3,7 @@ import { checkTokenBudget, type IR } from '@sga/core';
 import type { ExplorerReport } from '../explorer/explorer.agent';
 import { generateRuntimeConfig } from './config-generator';
 import { buildIRFromDiscovery } from './ir-generator';
+import type { LlmIrGenerator } from './llm-ir-generator';
 import { planShards, type ShardPlan } from './shard-planner';
 
 export interface ArchitectResult {
@@ -19,9 +20,21 @@ export interface ArchitectResult {
   };
 }
 
+export interface ArchitectDeps {
+  llmIrGenerator?: Pick<LlmIrGenerator, 'generate'>;
+}
+
 export class ArchitectAgent {
+  public constructor(private readonly deps: ArchitectDeps = {}) {}
+
   public async run(report: ExplorerReport): Promise<ArchitectResult> {
-    const ir = buildIRFromDiscovery(report);
+    const hasRawDocs = Array.isArray(report.rawDocs) && report.rawDocs.length > 0;
+    const llmGenerator = this.deps.llmIrGenerator;
+    const ir =
+      hasRawDocs && llmGenerator
+        ? await llmGenerator.generate(report.rawDocs.join('\n\n'))
+        : buildIRFromDiscovery(report);
+
     const shards = planShards(
       ir.tools.map((tool) => ({ name: tool.name, domain: 'default' })),
       40

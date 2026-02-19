@@ -11,6 +11,7 @@ export interface ExplorerReport {
   files: string[];
   containers: DockerContainerInfo[];
   endpoints: HttpFetchResult[];
+  rawDocs?: string[];
 }
 
 export interface ExplorerDeps {

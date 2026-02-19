@@ -12,6 +12,7 @@ import {
 import type { ApiResponse, SseErrorEvent, SseEvent } from '@sga/shared';
 
 import { ArchitectAgent } from '../agents/architect/architect.agent';
+import { LlmIrGenerator } from '../agents/architect/llm-ir-generator';
 import { BuilderAgent } from '../agents/builder/builder.agent';
 import { CoreCodegenAdapter } from '../agents/builder/core-codegen.adapter';
 import { DependencyInstaller } from '../agents/builder/dependency-installer';
@@ -267,20 +268,26 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     const baseUrl =
       env.get('OPENROUTER_BASE_URL') ?? process.env.OPENROUTER_BASE_URL ?? DEFAULT_BASE_URL;
     const urls = input.urls ?? [];
+    const llmProvider =
+      !input.dryRun && apiKey
+        ? new OpenRouterProvider('openrouter-coder', coderModel, apiKey, baseUrl)
+        : undefined;
 
     input.logger.log('Explorer — scanning sources...');
     const explorer = createExplorer(Boolean(input.dryRun));
     const explorerReport = await explorer.run({ root: input.root, urls });
 
     input.logger.log('Architect — designing MCP tools...');
-    const architect = new ArchitectAgent();
+    const architect = new ArchitectAgent(
+      llmProvider
+        ? {
+            llmIrGenerator: new LlmIrGenerator(llmProvider)
+          }
+        : undefined
+    );
     const architectResult = await architect.run(explorerReport);
 
     input.logger.log('Builder — generating code...');
-    const llmProvider =
-      !input.dryRun && apiKey
-        ? new OpenRouterProvider('openrouter-coder', coderModel, apiKey, baseUrl)
-        : undefined;
     const core = createCore({ dryRun: Boolean(input.dryRun), llmProvider });
     const adapter = new CoreCodegenAdapter(core);
     const installer = input.dryRun
