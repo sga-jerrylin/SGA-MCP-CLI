@@ -2,7 +2,14 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "outDir": "dist"
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@sga/core": ["../core/src/index.ts"],
+      "@sga/core/*": ["../core/src/*"],
+      "@sga/shared": ["../shared/src/index.ts"],
+      "@sga/shared/*": ["../shared/src/*"]
+    }
   },
   "include": ["src/**/*.ts", "*.spec.ts", "jest.config.ts"]
 }
