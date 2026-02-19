@@ -13,7 +13,7 @@ import { runCommand } from './commands/run.command';
 export function createCli(): Command {
   const program = new Command();
 
-  program.name('sga').description('SGA — MCP Server Generator').version('0.2.0');
+  program.name('mcp-claw').description('AI-powered MCP server generator').version('0.2.0');
 
   program
     .command('run')
@@ -59,3 +59,4 @@ if (require.main === module) {
     process.exitCode = 1;
   });
 }
+
