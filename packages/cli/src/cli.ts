@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import { registerConfigCommand } from './commands/config.command';
 import { registerLoginCommand } from './commands/login.command';
 import { registerLogoutCommand } from './commands/logout.command';
+import { registerPublishCommand } from './commands/publish.command';
 import { runCommand } from './commands/run.command';
 
 export function createCli(): Command {
@@ -24,6 +25,7 @@ export function createCli(): Command {
   registerConfigCommand(program);
   registerLoginCommand(program);
   registerLogoutCommand(program);
+  registerPublishCommand(program);
 
   return program;
 }
