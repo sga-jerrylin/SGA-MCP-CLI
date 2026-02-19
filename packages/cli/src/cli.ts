@@ -2,6 +2,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 
+import { loadChatConfig } from './chat/chat-config';
+import { startChatLoop } from './chat/chat-loop';
 import { registerConfigCommand } from './commands/config.command';
 import { generateCommand } from './commands/generate.command';
 import { registerLoginCommand } from './commands/login.command';
@@ -43,6 +45,11 @@ export function createCli(): Command {
   registerLogoutCommand(program);
   registerMemoryCommand(program);
   registerPublishCommand(program);
+
+  program.action(async () => {
+    const config = loadChatConfig();
+    await startChatLoop(config);
+  });
 
   return program;
 }
