@@ -3,12 +3,101 @@ export interface LlmProvider {
   complete(prompt: string): Promise<string>;
 }
 
+export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
+
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface ToolDefinition {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCall[];
+}
+
+export interface ChatResponse {
+  content: string;
+  finish_reason: 'stop' | 'tool_calls';
+  tool_calls?: ToolCall[];
+}
+
+export interface ChatCapableLlmProvider {
+  chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<ChatResponse>;
+}
+
 interface OpenRouterChatCompletionResponse {
   choices?: Array<{
+    finish_reason?: string;
     message?: {
       content?: string | Array<{ type?: string; text?: string }>;
+      tool_calls?: Array<{
+        id?: string;
+        type?: string;
+        function?: {
+          name?: string;
+          arguments?: string;
+        };
+      }>;
     };
   }>;
+}
+
+function extractTextContent(content: string | Array<{ type?: string; text?: string }> | undefined): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+      .join('\n')
+      .trim();
+  }
+
+  return '';
+}
+
+function extractToolCalls(
+  calls: Array<{
+    id?: string;
+    type?: string;
+    function?: { name?: string; arguments?: string };
+  }> | undefined
+): ToolCall[] {
+  if (!Array.isArray(calls)) {
+    return [];
+  }
+
+  return calls
+    .filter(
+      (call) =>
+        typeof call?.id === 'string' &&
+        (call?.type === 'function' || typeof call?.type === 'undefined') &&
+        typeof call?.function?.name === 'string'
+    )
+    .map((call) => ({
+      id: call.id as string,
+      type: 'function',
+      function: {
+        name: call.function?.name as string,
+        arguments: typeof call.function?.arguments === 'string' ? call.function.arguments : '{}'
+      }
+    }));
 }
 
 export class OpenRouterProvider implements LlmProvider {
@@ -23,7 +112,7 @@ export class OpenRouterProvider implements LlmProvider {
     this.name = name;
   }
 
-  public async complete(prompt: string): Promise<string> {
+  public async chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<ChatResponse> {
     const endpoint = `${this.baseUrl.replace(/\/+$/, '')}/chat/completions`;
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -35,7 +124,13 @@ export class OpenRouterProvider implements LlmProvider {
       },
       body: JSON.stringify({
         model: this.model,
-        messages: [{ role: 'user', content: prompt }],
+        messages: messages.map((message) => ({
+          role: message.role,
+          content: message.content,
+          ...(message.tool_call_id ? { tool_call_id: message.tool_call_id } : {}),
+          ...(message.tool_calls ? { tool_calls: message.tool_calls } : {})
+        })),
+        ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
         max_tokens: 8192
       })
     });
@@ -45,19 +140,22 @@ export class OpenRouterProvider implements LlmProvider {
     }
 
     const payload = (await response.json()) as OpenRouterChatCompletionResponse;
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content === 'string') {
-      return content;
-    }
+    const choice = payload.choices?.[0];
+    const content = extractTextContent(choice?.message?.content);
+    const toolCalls = extractToolCalls(choice?.message?.tool_calls);
+    const finishReason: ChatResponse['finish_reason'] =
+      toolCalls.length > 0 || choice?.finish_reason === 'tool_calls' ? 'tool_calls' : 'stop';
 
-    if (Array.isArray(content)) {
-      return content
-        .map((part) => (typeof part?.text === 'string' ? part.text : ''))
-        .join('\n')
-        .trim();
-    }
+    return {
+      content,
+      finish_reason: finishReason,
+      ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {})
+    };
+  }
 
-    return '';
+  public async complete(prompt: string): Promise<string> {
+    const result = await this.chat([{ role: 'user', content: prompt }]);
+    return result.content;
   }
 }
 
