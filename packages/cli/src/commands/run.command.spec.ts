@@ -1,5 +1,14 @@
 import { resolve } from 'node:path';
 
+// PipelineProgress uses chalk@5 + ora (ESM-only) — mock for Jest (CJS environment)
+jest.mock('../utils/pipeline-progress', () => ({
+  PipelineProgress: jest.fn().mockImplementation(() => ({
+    start: jest.fn(),
+    done: jest.fn(),
+    fail: jest.fn()
+  }))
+}));
+
 import { runCommand } from './run.command';
 
 describe('runCommand', () => {

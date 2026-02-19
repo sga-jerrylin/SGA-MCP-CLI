@@ -19,6 +19,9 @@ const config: Config = {
     '^@sga/shared/(.*)$': '<rootDir>/../shared/$1'
   },
   testEnvironment: 'node',
+  transformIgnorePatterns: [
+    'node_modules/(?!(chalk|ora|#ansi-styles|ansi-styles|#supports-color|supports-color|chalk-template|is-unicode-supported|log-symbols|cli-spinners|is-interactive|stdin-discarder)/)'
+  ],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.spec.ts', '!src/index.ts']
 };
 
