@@ -21,6 +21,11 @@ import { TestRunner } from '../agents/tester/test-runner';
 import { TesterSandboxAdapter } from '../agents/tester/sandbox.adapter';
 import { TesterAgent } from '../agents/tester/tester.agent';
 import { OpenRouterProvider } from '../llm/llm-client';
+import { BrowserTool } from '../tools/browser-tool';
+import { DockerInspectTool } from '../tools/docker-tool';
+import { FsTool } from '../tools/fs-tool';
+import { HttpFetchTool } from '../tools/http-tool';
+import { PdfTool } from '../tools/pdf-tool';
 import { PipelineProgress } from '../utils/pipeline-progress';
 
 export interface RunCommandInput {
@@ -176,7 +181,13 @@ function createCore(options: {
 
 function createExplorer(dryRun: boolean): ExplorerAgent {
   if (!dryRun) {
-    return new ExplorerAgent();
+    return new ExplorerAgent({
+      fsTool: new FsTool(),
+      dockerTool: new DockerInspectTool(),
+      httpTool: new HttpFetchTool(),
+      browserTool: new BrowserTool(),
+      pdfTool: new PdfTool()
+    });
   }
 
   return new ExplorerAgent({
