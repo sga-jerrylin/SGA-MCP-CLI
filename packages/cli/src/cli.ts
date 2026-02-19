@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 
 import { registerConfigCommand } from './commands/config.command';
+import { generateCommand } from './commands/generate.command';
 import { registerLoginCommand } from './commands/login.command';
 import { registerLogoutCommand } from './commands/logout.command';
 import { registerPublishCommand } from './commands/publish.command';
@@ -20,6 +21,20 @@ export function createCli(): Command {
     .option('--report-to <url>', 'Backend URL for progress reporting')
     .action(async (options: { root: string; reportTo?: string }) => {
       await runCommand({ root: options.root, logger: console, reportTo: options.reportTo });
+    });
+
+  program
+    .command('generate <source>')
+    .description('Generate an MCP server from a folder or URL')
+    .option('-o, --output <dir>')
+    .option('--publish')
+    .action(async (source: string, options: { output?: string; publish?: boolean }) => {
+      await generateCommand({
+        source,
+        output: options.output,
+        publish: options.publish,
+        logger: console
+      });
     });
 
   registerConfigCommand(program);
