@@ -1,17 +1,26 @@
 {
-  "name": "@sga/cli",
+  "name": "mcp-claw",
   "version": "0.1.0",
-  "private": true,
-  "main": "dist/index.js",
+  "private": false,
+  "main": "dist/bundle.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "sga": "./dist/index.js",
-    "mcp-claw": "./dist/index.js"
+    "mcp-claw": "./dist/bundle.js",
+    "sga": "./dist/bundle.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "bundle": "ncc build dist/cli.js -o dist/ncc --minify && node -e \"require('node:fs').copyFileSync('dist/ncc/index.js','dist/bundle.js')\"",
+    "build": "tsc -p tsconfig.build.json && pnpm bundle",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest"
+  },
+  "files": [
+    "dist/bundle.js",
+    "dist/*.d.ts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@sga/core": "workspace:*",
@@ -30,6 +39,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.17.46",
     "@types/pdf-parse": "^1.1.5",
+    "@vercel/ncc": "^0.38.4",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",

@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+import chalk from 'chalk';
+
 export * from './cli';
 export * from './loop/loop.types';
 export * from './loop/agent-loop.state-machine';
@@ -27,3 +30,13 @@ export * from './memory/session-log';
 export * from './memory/session-writer';
 export * from './agents/sync/sync.agent';
 export * from './agents/sync/hub-api-client';
+
+if (require.main === module) {
+  import('./cli')
+    .then(({ main }) => main(process.argv))
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(message));
+      process.exitCode = 1;
+    });
+}

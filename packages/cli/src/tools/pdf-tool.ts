@@ -1,7 +1,5 @@
 import { readFile } from 'node:fs/promises';
 
-import { PDFParse } from 'pdf-parse';
-
 export interface PdfExtractResult {
   text: string;
   pages: number;
@@ -15,6 +13,7 @@ export class PdfTool {
   }
 
   public async extractFromBuffer(buffer: Buffer): Promise<PdfExtractResult> {
+    const { PDFParse } = (await import('pdf-parse')) as typeof import('pdf-parse');
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
 
     try {
