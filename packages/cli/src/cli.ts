@@ -6,6 +6,7 @@ import { registerConfigCommand } from './commands/config.command';
 import { generateCommand } from './commands/generate.command';
 import { registerLoginCommand } from './commands/login.command';
 import { registerLogoutCommand } from './commands/logout.command';
+import { registerMemoryCommand } from './commands/memory.command';
 import { registerPublishCommand } from './commands/publish.command';
 import { runCommand } from './commands/run.command';
 
@@ -40,6 +41,7 @@ export function createCli(): Command {
   registerConfigCommand(program);
   registerLoginCommand(program);
   registerLogoutCommand(program);
+  registerMemoryCommand(program);
   registerPublishCommand(program);
 
   return program;
