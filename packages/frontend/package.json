@@ -1,5 +1,5 @@
 {
-  "name": "@mcp-claw/frontend",
+  "name": "@sga/frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@antv/g6": "^5.0.51",
-    "@mcp-claw/shared": "workspace:*",
+    "@sga/shared": "workspace:*",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.7.9",
     "dayjs": "^1.11.13",

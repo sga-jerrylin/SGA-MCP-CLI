@@ -1,4 +1,4 @@
-import type { SandboxPort, SandboxRunResult } from '@mcp-claw/core';
+import type { SandboxPort, SandboxRunResult } from '@sga/core';
 
 export class TesterSandboxAdapter {
   public constructor(private readonly sandbox: Pick<SandboxPort, 'runTests'>) {}

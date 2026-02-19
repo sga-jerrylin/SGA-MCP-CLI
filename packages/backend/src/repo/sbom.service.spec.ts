@@ -1,4 +1,4 @@
-import type { Package } from '@mcp-claw/shared';
+import type { Package } from '@sga/shared';
 import { SbomService } from './sbom.service';
 
 describe('SbomService', () => {

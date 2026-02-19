@@ -60,7 +60,7 @@
   import { DownloadOutlined } from '@ant-design/icons-vue';
   import { message } from 'ant-design-vue';
   import http from '@/utils/http';
-  import type { ApiResponse, PaginatedList, Package } from '@mcp-claw/shared';
+  import type { ApiResponse, PaginatedList, Package } from '@sga/shared';
 
   interface InstallPackageResponse {
     packageId: string;

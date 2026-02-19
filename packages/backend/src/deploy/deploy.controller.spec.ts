@@ -1,4 +1,4 @@
-import type { DeployPreview, DeployTask } from '@mcp-claw/shared';
+import type { DeployPreview, DeployTask } from '@sga/shared';
 import { DeployController } from './deploy.controller';
 import { DeployService } from './deploy.service';
 

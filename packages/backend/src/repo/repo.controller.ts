@@ -1,4 +1,4 @@
-import type { ApiResponse, Package, PaginatedList } from '@mcp-claw/shared';
+import type { ApiResponse, Package, PaginatedList } from '@sga/shared';
 import { Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { RepoService } from './repo.service';
 

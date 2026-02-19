@@ -1,4 +1,4 @@
-import type { ApiResponse, LoginRequest, LoginResponse, User } from '@mcp-claw/shared';
+import type { ApiResponse, LoginRequest, LoginResponse, User } from '@sga/shared';
 import { Body, Controller, Get, Headers, Post, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 

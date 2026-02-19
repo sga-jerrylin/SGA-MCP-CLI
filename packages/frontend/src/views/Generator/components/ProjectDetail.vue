@@ -32,7 +32,7 @@
   import { useSse } from '@/hooks/useSse';
   import LogTerminal from '@/components/Generator/LogTerminal.vue';
   import http from '@/utils/http';
-  import type { ApiResponse, GenerateRun, StartGenerateRequest } from '@mcp-claw/shared';
+  import type { ApiResponse, GenerateRun, StartGenerateRequest } from '@sga/shared';
 
   const generatorStore = useGeneratorStore();
   const project = computed(() => generatorStore.currentProject!);

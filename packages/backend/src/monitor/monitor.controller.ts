@@ -1,4 +1,4 @@
-import type { ApiResponse, PaginatedList, SseEvent } from '@mcp-claw/shared';
+import type { ApiResponse, PaginatedList, SseEvent } from '@sga/shared';
 import { Body, Controller, Get, MessageEvent, Param, Post, Query, Sse } from '@nestjs/common';
 import { concat, from, map, Observable } from 'rxjs';
 import {

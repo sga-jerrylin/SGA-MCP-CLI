@@ -5,7 +5,7 @@ import type {
   CreateApiKeyResponse,
   CreateTenantRequest,
   Tenant
-} from '@mcp-claw/shared';
+} from '@sga/shared';
 import { Injectable } from '@nestjs/common';
 
 type StoredApiKey = ApiKey & { hash: string };

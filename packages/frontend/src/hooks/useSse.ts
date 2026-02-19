@@ -1,5 +1,5 @@
 import { ref, onUnmounted } from 'vue';
-import type { SseEvent } from '@mcp-claw/shared';
+import type { SseEvent } from '@sga/shared';
 
 export function useSse(url: string, onMessage: (data: SseEvent) => void) {
   const status = ref<'connecting' | 'open' | 'closed'>('closed');

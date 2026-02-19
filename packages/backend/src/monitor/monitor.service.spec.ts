@@ -1,4 +1,4 @@
-import type { McpServer } from '@mcp-claw/shared';
+import type { McpServer } from '@sga/shared';
 import { RuntimeService } from '../runtime/runtime.service';
 import { MonitorService } from './monitor.service';
 

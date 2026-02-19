@@ -1,4 +1,4 @@
-import type { ApiResponse, Package, SyncPushResponse } from '@mcp-claw/shared';
+import type { ApiResponse, Package, SyncPushResponse } from '@sga/shared';
 import {
   BadRequestException,
   Body,

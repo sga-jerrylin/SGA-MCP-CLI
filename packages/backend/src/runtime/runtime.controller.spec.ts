@@ -1,4 +1,4 @@
-import type { McpServer, McpServerDetail, ToolsListResponse } from '@mcp-claw/shared';
+import type { McpServer, McpServerDetail, ToolsListResponse } from '@sga/shared';
 import { RuntimeController } from './runtime.controller';
 import { RuntimeService } from './runtime.service';
 

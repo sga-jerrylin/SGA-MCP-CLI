@@ -1,5 +1,5 @@
-import type { PackageBuildResult } from '@mcp-claw/core';
-import type { ApiResponse, Artifact, GenerateRun, PaginatedList, Project } from '@mcp-claw/shared';
+import type { PackageBuildResult } from '@sga/core';
+import type { ApiResponse, Artifact, GenerateRun, PaginatedList, Project } from '@sga/shared';
 import {
   Body,
   Controller,

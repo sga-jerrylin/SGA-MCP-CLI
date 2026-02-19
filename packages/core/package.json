@@ -1,5 +1,5 @@
 {
-  "name": "@mcp-claw/core",
+  "name": "@sga/core",
   "version": "0.1.0",
   "private": true,
   "main": "dist/index.js",
@@ -16,7 +16,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@mcp-claw/shared": "workspace:*",
+    "@sga/shared": "workspace:*",
     "zod": "^3.23.8",
     "openapi-mcp-generator": "^3.2.0"
   },

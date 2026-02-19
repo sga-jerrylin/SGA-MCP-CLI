@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
   import { ref, watch, nextTick } from 'vue';
-  import type { SseLogEvent } from '@mcp-claw/shared';
+  import type { SseLogEvent } from '@sga/shared';
 
   const props = defineProps<{ logs: SseLogEvent[] }>();
   const terminalRef = ref<HTMLElement>();

@@ -26,7 +26,7 @@
   import { reactive, ref } from 'vue';
   import { useRouter } from 'vue-router';
   import http from '@/utils/http';
-  import type { ApiResponse, LoginRequest, LoginResponse } from '@mcp-claw/shared';
+  import type { ApiResponse, LoginRequest, LoginResponse } from '@sga/shared';
 
   const router = useRouter();
   const form = reactive<LoginRequest>({ username: '', password: '' });

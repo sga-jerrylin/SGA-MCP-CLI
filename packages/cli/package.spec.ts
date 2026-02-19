@@ -11,7 +11,7 @@ describe('cli package contract', () => {
     };
 
     expect(pkg.scripts.test).toBe('jest');
-    expect(pkg.dependencies['@mcp-claw/core']).toBeDefined();
+    expect(pkg.dependencies['@sga/core']).toBeDefined();
     expect(pkg.dependencies.commander).toBeDefined();
     expect(pkg.dependencies.chalk).toBeDefined();
     expect(pkg.dependencies.ora).toBeDefined();

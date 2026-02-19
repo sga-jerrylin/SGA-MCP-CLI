@@ -7,7 +7,7 @@ import {
   OpenRouterClient,
   parseSystemInfo,
   parseToolHeader
-} from '@mcp-claw/core';
+} from '@sga/core';
 import { GeneratorController } from './generator.controller';
 import { GeneratorService } from './generator.service';
 

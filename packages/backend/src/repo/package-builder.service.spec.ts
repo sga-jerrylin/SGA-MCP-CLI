@@ -1,4 +1,4 @@
-import type { Artifact } from '@mcp-claw/shared';
+import type { Artifact } from '@sga/shared';
 import { PackageBuilderService } from './package-builder.service';
 
 describe('PackageBuilderService', () => {

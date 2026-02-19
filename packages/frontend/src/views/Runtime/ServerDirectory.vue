@@ -43,7 +43,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { ReloadOutlined } from '@ant-design/icons-vue';
 import http from '@/utils/http';
-import type { ApiResponse, McpServer } from '@mcp-claw/shared';
+import type { ApiResponse, McpServer } from '@sga/shared';
 
 const servers = ref<McpServer[]>([]);
 const searchText = ref('');

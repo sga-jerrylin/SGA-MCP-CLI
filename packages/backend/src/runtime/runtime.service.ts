@@ -4,7 +4,7 @@ import type {
   McpTool,
   Package,
   ToolsListResponse
-} from '@mcp-claw/shared';
+} from '@sga/shared';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type * as Minio from 'minio';
 import { MinioService } from '../storage/minio.service';

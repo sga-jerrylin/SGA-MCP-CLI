@@ -1,4 +1,4 @@
-import type { Project } from '@mcp-claw/shared';
+import type { Project } from '@sga/shared';
 import { GeneratorController } from './generator.controller';
 import { GeneratorService } from './generator.service';
 

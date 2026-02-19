@@ -1,5 +1,5 @@
 {
-  "name": "@mcp-claw/cli",
+  "name": "@sga/cli",
   "version": "0.1.0",
   "private": true,
   "main": "dist/index.js",
@@ -13,8 +13,8 @@
     "test": "jest"
   },
   "dependencies": {
-    "@mcp-claw/core": "workspace:*",
-    "@mcp-claw/shared": "workspace:*",
+    "@sga/core": "workspace:*",
+    "@sga/shared": "workspace:*",
     "chalk": "^5.6.2",
     "commander": "^12.1.0",
     "execa": "^9.6.0",

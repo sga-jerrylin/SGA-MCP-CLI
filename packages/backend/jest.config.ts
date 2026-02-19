@@ -13,10 +13,10 @@ const config: Config = {
     ]
   },
   moduleNameMapper: {
-    '^@mcp-claw/core$': '<rootDir>/../core/src/index.ts',
-    '^@mcp-claw/core/(.*)$': '<rootDir>/../core/src/$1',
-    '^@mcp-claw/shared$': '<rootDir>/../shared/src/index.ts',
-    '^@mcp-claw/shared/(.*)$': '<rootDir>/../shared/$1'
+    '^@sga/core$': '<rootDir>/../core/src/index.ts',
+    '^@sga/core/(.*)$': '<rootDir>/../core/src/$1',
+    '^@sga/shared$': '<rootDir>/../shared/src/index.ts',
+    '^@sga/shared/(.*)$': '<rootDir>/../shared/$1'
   },
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.spec.ts', '!src/**/index.ts'],
   coverageDirectory: './coverage',

@@ -23,7 +23,7 @@ import type {
   Tenant,
   ToolsListResponse,
   User
-} from '@mcp-claw/shared';
+} from '@sga/shared';
 
 interface AuditLog {
   id: string;

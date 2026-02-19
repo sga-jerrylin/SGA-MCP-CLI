@@ -4,7 +4,7 @@ import type {
   DeployPreviewRequest,
   DeployTask,
   McpServer
-} from '@mcp-claw/shared';
+} from '@sga/shared';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';

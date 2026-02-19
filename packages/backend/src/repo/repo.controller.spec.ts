@@ -1,4 +1,4 @@
-import type { Package, PaginatedList } from '@mcp-claw/shared';
+import type { Package, PaginatedList } from '@sga/shared';
 import { RepoController } from './repo.controller';
 import { RepoService } from './repo.service';
 

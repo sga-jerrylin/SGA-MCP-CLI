@@ -13,7 +13,7 @@ describe('core package manifest', () => {
       scripts: Record<string, string>;
     };
 
-    expect(pkg.name).toBe('@mcp-claw/core');
+    expect(pkg.name).toBe('@sga/core');
     expect(pkg.version).toMatch(/^\d+\.\d+\.\d+/);
     expect(pkg.main).toBe('dist/index.js');
     expect(pkg.types).toBe('dist/index.d.ts');

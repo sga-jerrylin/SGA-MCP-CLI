@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Artifact, Package } from '@mcp-claw/shared';
+import type { Artifact, Package } from '@sga/shared';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()

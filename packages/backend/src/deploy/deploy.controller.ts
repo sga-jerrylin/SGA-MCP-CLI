@@ -4,7 +4,7 @@ import type {
   DeployPreview,
   DeployPreviewRequest,
   DeployTask
-} from '@mcp-claw/shared';
+} from '@sga/shared';
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { DeployService } from './deploy.service';
 

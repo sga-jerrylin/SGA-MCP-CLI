@@ -1,4 +1,4 @@
-import type { Package, SyncPushResponse } from '@mcp-claw/shared';
+import type { Package, SyncPushResponse } from '@sga/shared';
 import { SyncController } from './sync.controller';
 import { SyncService, type SyncPushInput } from './sync.service';
 

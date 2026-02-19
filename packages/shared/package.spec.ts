@@ -15,7 +15,7 @@ for (const file of manifests) {
     name?: string;
     scripts?: Record<string, string>;
   };
-  if (!pkg.name?.startsWith('@mcp-claw/')) {
+  if (!pkg.name?.startsWith('@sga/')) {
     throw new Error(`invalid package name: ${file}`);
   }
   if (!pkg.scripts?.build || !pkg.scripts?.test) {

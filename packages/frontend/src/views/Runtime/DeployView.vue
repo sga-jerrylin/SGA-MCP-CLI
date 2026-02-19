@@ -68,7 +68,7 @@
   import { CheckCircleOutlined } from '@ant-design/icons-vue';
   import { message } from 'ant-design-vue';
   import http from '@/utils/http';
-  import type { ApiResponse, DeployPreview, DeployTask, McpServer } from '@mcp-claw/shared';
+  import type { ApiResponse, DeployPreview, DeployTask, McpServer } from '@sga/shared';
 
   interface TransferItem {
     key: string;

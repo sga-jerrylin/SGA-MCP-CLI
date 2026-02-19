@@ -1,4 +1,4 @@
-import type { Package, PaginatedList } from '@mcp-claw/shared';
+import type { Package, PaginatedList } from '@sga/shared';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type * as Minio from 'minio';
 import { MinioService } from '../storage/minio.service';

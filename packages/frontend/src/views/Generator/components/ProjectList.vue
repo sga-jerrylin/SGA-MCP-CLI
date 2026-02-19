@@ -23,7 +23,7 @@
   import { useGeneratorStore } from '@/store/generator';
   import ImportModal from './ImportModal.vue';
   import http from '@/utils/http';
-  import type { ApiResponse, PaginatedList, Project } from '@mcp-claw/shared';
+  import type { ApiResponse, PaginatedList, Project } from '@sga/shared';
 
   const generatorStore = useGeneratorStore();
   const showImport = ref(false);

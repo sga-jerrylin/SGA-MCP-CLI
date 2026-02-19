@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { Project, SseLogEvent } from '@mcp-claw/shared';
+import type { Project, SseLogEvent } from '@sga/shared';
 
 export const useGeneratorStore = defineStore('generator', {
   state: () => ({

@@ -1,4 +1,4 @@
-import type { McpClawCore, PackageBuildResult } from '@mcp-claw/core';
+import type { McpClawCore, PackageBuildResult } from '@sga/core';
 
 export type CoreCodegenResult = PackageBuildResult & {
   files: Array<{ path: string; content: string }>;

@@ -1,4 +1,4 @@
-import { checkTokenBudget, type IR } from '@mcp-claw/core';
+import { checkTokenBudget, type IR } from '@sga/core';
 
 import type { ExplorerReport } from '../explorer/explorer.agent';
 import { generateRuntimeConfig } from './config-generator';

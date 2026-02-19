@@ -1,4 +1,4 @@
-import type { ApiResponse, SseErrorEvent, SseEvent } from '@mcp-claw/shared';
+import type { ApiResponse, SseErrorEvent, SseEvent } from '@sga/shared';
 
 export interface RunCommandInput {
   root: string;

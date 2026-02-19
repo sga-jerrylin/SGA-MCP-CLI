@@ -92,7 +92,7 @@
   import dayjs from 'dayjs';
   import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue';
   import type { ComponentPublicInstance } from 'vue';
-  import type { ApiResponse } from '@mcp-claw/shared';
+  import type { ApiResponse } from '@sga/shared';
   import http from '@/utils/http';
 
   interface SystemMetricsSnapshot {

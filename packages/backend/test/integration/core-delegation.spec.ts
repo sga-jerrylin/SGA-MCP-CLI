@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { McpClawCore } from '@mcp-claw/core';
+import { McpClawCore } from '@sga/core';
 
 import { GeneratorService } from '../../src/generator/generator.service';
 

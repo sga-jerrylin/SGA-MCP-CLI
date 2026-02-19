@@ -4,10 +4,10 @@
     "rootDir": "src",
     "baseUrl": ".",
     "paths": {
-      "@mcp-claw/core": ["../core/dist/index.d.ts"],
-      "@mcp-claw/core/*": ["../core/dist/*"],
-      "@mcp-claw/shared": ["../shared/dist/types/api.d.ts"],
-      "@mcp-claw/shared/*": ["../shared/dist/*"]
+      "@sga/core": ["../core/dist/index.d.ts"],
+      "@sga/core/*": ["../core/dist/*"],
+      "@sga/shared": ["../shared/dist/types/api.d.ts"],
+      "@sga/shared/*": ["../shared/dist/*"]
     }
   },
   "exclude": ["**/*.spec.ts", "jest.config.ts"]

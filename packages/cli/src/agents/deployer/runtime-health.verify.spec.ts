@@ -1,4 +1,4 @@
-import type { McpServerDetail } from '@mcp-claw/shared';
+import type { McpServerDetail } from '@sga/shared';
 
 import { verifyServers } from './runtime-health.verify';
 

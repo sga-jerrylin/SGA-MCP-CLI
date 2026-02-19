@@ -23,7 +23,7 @@
   import { reactive } from 'vue';
   import { InboxOutlined } from '@ant-design/icons-vue';
   import http from '@/utils/http';
-  import type { ApiResponse, Project } from '@mcp-claw/shared';
+  import type { ApiResponse, Project } from '@sga/shared';
 
   const props = defineProps<{ visible: boolean }>();
   const emit = defineEmits(['update:visible']);

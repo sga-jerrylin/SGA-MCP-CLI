@@ -1,4 +1,4 @@
-import type { DeployPreviewRequest, McpServer } from '@mcp-claw/shared';
+import type { DeployPreviewRequest, McpServer } from '@sga/shared';
 
 import { buildComposeFromRequest } from './compose-from-contract';
 

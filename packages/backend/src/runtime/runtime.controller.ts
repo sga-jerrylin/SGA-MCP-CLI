@@ -1,4 +1,4 @@
-import type { ApiResponse, McpServer, McpServerDetail, ToolsListResponse } from '@mcp-claw/shared';
+import type { ApiResponse, McpServer, McpServerDetail, ToolsListResponse } from '@sga/shared';
 import { Controller, Get, Param } from '@nestjs/common';
 import { RuntimeService } from './runtime.service';
 

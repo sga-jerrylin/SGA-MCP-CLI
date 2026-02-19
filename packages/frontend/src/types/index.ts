@@ -1,7 +1,7 @@
 /**
  * 前端类型定义
  *
- * 共享类型从 @mcp-claw/shared 重新导出，禁止在此重复定义。
+ * 共享类型从 @sga/shared 重新导出，禁止在此重复定义。
  * 仅在此文件中添加前端专用类型。
  */
 
@@ -46,7 +46,7 @@ export type {
   TimeSeriesPoint,
   LatencyPoint,
   MemoryPoint
-} from '@mcp-claw/shared';
+} from '@sga/shared';
 
 // ── 前端专用类型 ────────────────────────────────
 

@@ -1,4 +1,4 @@
-import type { McpServer, Package } from '@mcp-claw/shared';
+import type { McpServer, Package } from '@sga/shared';
 import { BadRequestException } from '@nestjs/common';
 import { RuntimeService } from '../runtime/runtime.service';
 import { SyncService } from '../sync/sync.service';

@@ -1,4 +1,4 @@
-import type { ApiKey, CreateApiKeyResponse, CreateTenantRequest, Tenant } from '@mcp-claw/shared';
+import type { ApiKey, CreateApiKeyResponse, CreateTenantRequest, Tenant } from '@sga/shared';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 

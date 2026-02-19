@@ -173,7 +173,7 @@
 </template>
 
 <script setup lang="ts">
-  import type { ApiResponse, DashboardSummary, ToolCallStat } from '@mcp-claw/shared';
+  import type { ApiResponse, DashboardSummary, ToolCallStat } from '@sga/shared';
   import dayjs from 'dayjs';
   import { computed, onMounted, ref } from 'vue';
   import http from '@/utils/http';

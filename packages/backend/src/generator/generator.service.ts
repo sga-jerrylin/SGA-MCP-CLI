@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { PackageBuildResult } from '@mcp-claw/core';
-import { McpClawCore } from '@mcp-claw/core';
+import type { PackageBuildResult } from '@sga/core';
+import { McpClawCore } from '@sga/core';
 
 @Injectable()
 export class GeneratorService {

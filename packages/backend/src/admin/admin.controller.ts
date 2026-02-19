@@ -5,7 +5,7 @@ import type {
   CreateApiKeyResponse,
   CreateTenantRequest,
   Tenant
-} from '@mcp-claw/shared';
+} from '@sga/shared';
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { AdminService } from './admin.service';
 

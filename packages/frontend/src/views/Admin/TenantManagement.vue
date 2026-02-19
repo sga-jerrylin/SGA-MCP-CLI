@@ -65,7 +65,7 @@ import { useRouter } from 'vue-router';
 import { PlusOutlined } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import http from '@/utils/http';
-import type { ApiResponse, Tenant, CreateTenantRequest } from '@mcp-claw/shared';
+import type { ApiResponse, Tenant, CreateTenantRequest } from '@sga/shared';
 
 const router = useRouter();
 const tenants = ref<Tenant[]>([]);

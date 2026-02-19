@@ -83,7 +83,7 @@ import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import http from '@/utils/http';
-import type { ApiResponse, ApiKey, CreateApiKeyRequest, CreateApiKeyResponse } from '@mcp-claw/shared';
+import type { ApiResponse, ApiKey, CreateApiKeyRequest, CreateApiKeyResponse } from '@sga/shared';
 
 const route = useRoute();
 const tenantId = route.params.tenantId as string;

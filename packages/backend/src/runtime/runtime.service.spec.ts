@@ -1,4 +1,4 @@
-import type { Package } from '@mcp-claw/shared';
+import type { Package } from '@sga/shared';
 import { PassThrough } from 'stream';
 import { MinioService } from '../storage/minio.service';
 import { RuntimeService } from './runtime.service';

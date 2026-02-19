@@ -1,4 +1,4 @@
-import type { PaginatedList, SseEvent } from '@mcp-claw/shared';
+import type { PaginatedList, SseEvent } from '@sga/shared';
 import { of } from 'rxjs';
 import { MonitorController } from './monitor.controller';
 import {

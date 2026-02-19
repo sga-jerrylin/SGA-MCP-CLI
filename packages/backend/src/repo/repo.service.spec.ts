@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import type { Package } from '@mcp-claw/shared';
+import type { Package } from '@sga/shared';
 import type { MinioService } from '../storage/minio.service';
 import { RepoService, invalidateRepoCatalog } from './repo.service';
 

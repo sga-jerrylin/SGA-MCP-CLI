@@ -1,4 +1,4 @@
-import type { Package } from '@mcp-claw/shared';
+import type { Package } from '@sga/shared';
 import { Injectable } from '@nestjs/common';
 
 export interface SpdxLite {

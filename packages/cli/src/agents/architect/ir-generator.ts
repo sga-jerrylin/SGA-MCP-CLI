@@ -1,4 +1,4 @@
-import type { IR, IrTool } from '@mcp-claw/core';
+import type { IR, IrTool } from '@sga/core';
 
 import type { ExplorerReport } from '../explorer/explorer.agent';
 

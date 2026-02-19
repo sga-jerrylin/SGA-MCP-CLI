@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { LoginResponse, User } from '@mcp-claw/shared';
+import type { LoginResponse, User } from '@sga/shared';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 
 @Injectable()

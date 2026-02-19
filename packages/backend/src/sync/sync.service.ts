@@ -1,4 +1,4 @@
-import type { Package, SyncPushResponse } from '@mcp-claw/shared';
+import type { Package, SyncPushResponse } from '@sga/shared';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { invalidateRepoCatalog } from '../repo/repo.service';
 import { MinioService } from '../storage/minio.service';

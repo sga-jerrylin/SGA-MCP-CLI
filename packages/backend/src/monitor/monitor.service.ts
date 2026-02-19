@@ -1,4 +1,4 @@
-import type { PaginatedList, SseEvent } from '@mcp-claw/shared';
+import type { PaginatedList, SseEvent } from '@sga/shared';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Subject } from 'rxjs';
 import { RuntimeService } from '../runtime/runtime.service';
