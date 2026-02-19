@@ -21,6 +21,7 @@ import { TestRunner } from '../agents/tester/test-runner';
 import { TesterSandboxAdapter } from '../agents/tester/sandbox.adapter';
 import { TesterAgent } from '../agents/tester/tester.agent';
 import { OpenRouterProvider } from '../llm/llm-client';
+import { PipelineProgress } from '../utils/pipeline-progress';
 
 export interface RunCommandInput {
   root: string;
@@ -260,6 +261,12 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     timestamp: nowIso()
   });
 
+  const progress = new PipelineProgress({
+    logger: input.logger,
+    silent: Boolean(input.dryRun) || input.logger !== console
+  });
+  let activeStage: 'Explorer' | 'Architect' | 'Builder' | 'Tester' | undefined;
+
   try {
     const env = loadEnvConfig(input.root);
     const apiKey = env.get('OPENROUTER_API_KEY') ?? process.env.OPENROUTER_API_KEY ?? '';
@@ -273,11 +280,14 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
         ? new OpenRouterProvider('openrouter-coder', coderModel, apiKey, baseUrl)
         : undefined;
 
-    input.logger.log('Explorer — scanning sources...');
+    activeStage = 'Explorer';
+    progress.start('Explorer', 'scanning sources...');
     const explorer = createExplorer(Boolean(input.dryRun));
     const explorerReport = await explorer.run({ root: input.root, urls });
+    progress.done('Explorer', `found ${explorerReport.files.length} files`);
 
-    input.logger.log('Architect — designing MCP tools...');
+    activeStage = 'Architect';
+    progress.start('Architect', 'designing MCP tools...');
     const architect = new ArchitectAgent(
       llmProvider
         ? {
@@ -286,8 +296,10 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
         : undefined
     );
     const architectResult = await architect.run(explorerReport);
+    progress.done('Architect', `planned ${architectResult.ir.tools.length} tools`);
 
-    input.logger.log('Builder — generating code...');
+    activeStage = 'Builder';
+    progress.start('Builder', 'generating code...');
     const core = createCore({ dryRun: Boolean(input.dryRun), llmProvider });
     const adapter = new CoreCodegenAdapter(core);
     const installer = input.dryRun
@@ -300,8 +312,10 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
       root: input.root,
       planDoc: input.dryRun ? '' : JSON.stringify(architectResult.ir, null, 2)
     });
+    progress.done('Builder', `wrote ${builderResult.writtenFiles.length} files`);
 
-    input.logger.log('Tester — validating generated server...');
+    activeStage = 'Tester';
+    progress.start('Tester', 'validating generated server...');
     const runner = input.dryRun
       ? {
           run: async () => ({
@@ -324,9 +338,13 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
       files: builderResult.writtenFiles.map((filePath) => ({ path: filePath, content: '' }))
     });
 
-    input.logger.log(
-      `Done — ${testerResult.passed ? 'PASS' : 'FAIL'} (${builderResult.writtenFiles.length} files written)`
-    );
+    if (testerResult.passed) {
+      progress.done('Tester', 'tests passed');
+    } else {
+      progress.fail('Tester', 'tests failed');
+    }
+    activeStage = undefined;
+
     await reporter.reportEvent({
       type: 'done',
       projectId: reporter.runId ?? 'cli-run',
@@ -334,6 +352,10 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
+    if (activeStage) {
+      progress.fail(activeStage, message);
+    }
+
     const errorEvent: SseErrorEvent = {
       type: 'error',
       message
