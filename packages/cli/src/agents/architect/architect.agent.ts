@@ -28,13 +28,12 @@ export class ArchitectAgent {
   public constructor(private readonly deps: ArchitectDeps = {}) {}
 
   public async run(report: ExplorerReport): Promise<ArchitectResult> {
-    const rawDocs = Array.isArray(report.rawDocs) ? report.rawDocs : [];
-    const hasRawDocs = rawDocs.length > 0;
-    const llmGenerator = this.deps.llmIrGenerator;
-    const ir =
-      hasRawDocs && llmGenerator
-        ? await llmGenerator.generate(rawDocs.join('\n\n'))
-        : buildIRFromDiscovery(report);
+    let ir: IR;
+    if (report.rawDocs?.length && this.deps.llmIrGenerator) {
+      ir = await this.deps.llmIrGenerator.generate(report.rawDocs.join('\n\n'));
+    } else {
+      ir = buildIRFromDiscovery(report);
+    }
 
     const shards = planShards(
       ir.tools.map((tool) => ({ name: tool.name, domain: 'default' })),
