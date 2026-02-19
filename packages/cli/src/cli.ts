@@ -12,7 +12,7 @@ import { runCommand } from './commands/run.command';
 export function createCli(): Command {
   const program = new Command();
 
-  program.name('mcp-claw').description('MCP Claw CLI Agent').version('0.1.0');
+  program.name('sga').description('SGA — MCP Server Generator').version('0.2.0');
 
   program
     .command('run')
