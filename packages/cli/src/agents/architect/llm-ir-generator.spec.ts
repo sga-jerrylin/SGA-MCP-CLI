@@ -36,9 +36,11 @@ describe('LlmIrGenerator', () => {
 
   it('parses JSON wrapped in markdown fences', async () => {
     const llm = {
-      complete: jest.fn().mockResolvedValue(
-        '```json\n{"system":{"code":"crm","baseUrl":"https://crm.example.com","authType":"none"},"tools":[]}\n```'
-      )
+      complete: jest
+        .fn()
+        .mockResolvedValue(
+          '```json\n{"system":{"code":"crm","baseUrl":"https://crm.example.com","authType":"none"},"tools":[]}\n```'
+        )
     };
 
     const generator = new LlmIrGenerator(llm);
@@ -64,5 +66,21 @@ describe('LlmIrGenerator', () => {
       },
       tools: []
     });
+  });
+
+  it('passes full doc up to 80 000 chars to LLM', async () => {
+    const longDoc = 'GET /endpoint\n'.repeat(6000);
+    const captured: string[] = [];
+    const llm = {
+      complete: jest.fn().mockImplementation(async (prompt: string) => {
+        captured.push(prompt);
+        return '{}';
+      })
+    };
+
+    const generator = new LlmIrGenerator(llm);
+    await generator.generate(longDoc);
+
+    expect(captured[0]?.length ?? 0).toBeGreaterThan(79_900);
   });
 });

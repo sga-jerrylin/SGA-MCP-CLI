@@ -60,7 +60,8 @@ function normalizeTools(tools: unknown): IrTool[] {
 
     const candidate = tool as Record<string, unknown>;
     const method = normalizeMethod(candidate.method);
-    const path = typeof candidate.path === 'string' && candidate.path.startsWith('/') ? candidate.path : '/';
+    const path =
+      typeof candidate.path === 'string' && candidate.path.startsWith('/') ? candidate.path : '/';
     const name = toSnakeCase(typeof candidate.name === 'string' ? candidate.name : path);
 
     normalized.push({
@@ -114,7 +115,7 @@ export class LlmIrGenerator {
   public constructor(private readonly llm: Pick<LlmProvider, 'complete'>) {}
 
   public async generate(rawDoc: string): Promise<IR> {
-    const truncated = rawDoc.slice(0, 12_000);
+    const truncated = rawDoc.slice(0, 80_000);
     const prompt = [
       'You are an API analyst that converts API documentation into MCP IR JSON.',
       'Return ONLY valid JSON without markdown fences.',
