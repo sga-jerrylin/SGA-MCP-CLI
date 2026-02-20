@@ -1,5 +1,8 @@
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { extname, isAbsolute, relative, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { extname, isAbsolute, join, relative, resolve } from 'node:path';
+import { promisify } from 'node:util';
 
 import { TestRunner } from '../agents/tester/test-runner';
 import { generateCommand, isUrl } from '../commands/generate.command';
@@ -11,17 +14,7 @@ import { FsTool } from '../tools/fs-tool';
 import type { ChatConfig } from './chat-types';
 import { buildToolDefinitions, type ChatToolName } from './tool-definitions';
 
-const SYSTEM_PROMPT = [
-  'ä½ æ˜¯ mcp-clawï¼Œä¸€ä¸ª AI é©±åŠ¨çš„ MCP server ç”Ÿæˆå·¥å…·ã€‚',
-  'ç”¨æˆ·ä¼šå‘Šè¯‰ä½  API æ–‡æ¡£çš„ä½ç½®ï¼ˆæ–‡ä»¶å¤¹æˆ– URLï¼‰ï¼Œä½ æ¥ï¼š',
-  '1. è¯»å–å’Œç†è§£ API æ–‡æ¡£',
-  '2. è®¾è®¡åˆé€‚çš„ MCP å·¥å…·',
-  '3. ç”Ÿæˆå¯è¿è¡Œçš„ MCP server ä»£ç ',
-  '4. æµ‹è¯•å’Œå‘å¸ƒ',
-  '',
-  'ç”¨ä¸­æ–‡å›å¤ï¼ˆé™¤éç”¨æˆ·ç”¨å…¶ä»–è¯­è¨€ï¼‰ã€‚å›å¤ç®€æ´ï¼Œä¸è¦å•°å—¦ã€‚',
-  'æ‰§è¡Œå·¥å…·å‰å‘Šè¯‰ç”¨æˆ·ä½ è¦åšä»€ä¹ˆã€‚å·¥å…·å®Œæˆåæ€»ç»“ç»“æœã€‚'
-].join('\n');
+const execFileAsync = promisify(execFile);
 
 const FOLDER_PATTERNS = ['*'];
 const TEXT_EXTENSIONS = new Set([
@@ -42,6 +35,12 @@ const TEXT_EXTENSIONS = new Set([
 const MAX_DOC_FILE_COUNT = 20;
 const MAX_SNIPPET_LENGTH = 3000;
 const MAX_TEST_OUTPUT = 6000;
+
+interface GitContext {
+  isRepo: boolean;
+  branch?: string;
+  latestCommit?: string;
+}
 
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
@@ -71,6 +70,114 @@ function formatError(error: unknown): string {
 
 function isTextLikeFile(filePath: string): boolean {
   return TEXT_EXTENSIONS.has(extname(filePath).toLowerCase());
+}
+
+function findNearestFile(startDir: string, fileName: string, maxLevels = 6): string | undefined {
+  let current = resolve(startDir);
+
+  for (let level = 0; level <= maxLevels; level += 1) {
+    const candidate = join(current, fileName);
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+
+    const parent = resolve(current, '..');
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+
+  return undefined;
+}
+
+async function runGit(workDir: string, args: string[]): Promise<string | undefined> {
+  try {
+    const { stdout } = await execFileAsync('git', args, {
+      cwd: workDir,
+      windowsHide: true
+    });
+    const output = stdout.trim();
+    return output.length > 0 ? output : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function readProjectName(workDir: string): Promise<string | undefined> {
+  const packagePath = findNearestFile(workDir, 'package.json');
+  if (!packagePath) {
+    return undefined;
+  }
+
+  try {
+    const raw = await readFile(packagePath, 'utf8');
+    const parsed = JSON.parse(raw) as { name?: unknown };
+    return typeof parsed.name === 'string' ? parsed.name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function readGitContext(workDir: string): Promise<GitContext> {
+  const inside = await runGit(workDir, ['rev-parse', '--is-inside-work-tree']);
+  if (inside !== 'true') {
+    return { isRepo: false };
+  }
+
+  const [branch, latestCommit] = await Promise.all([
+    runGit(workDir, ['branch', '--show-current']),
+    runGit(workDir, ['log', '-1', '--pretty=format:%h %s'])
+  ]);
+
+  return {
+    isRepo: true,
+    branch,
+    latestCommit
+  };
+}
+
+async function buildSystemPrompt(workDir: string): Promise<string> {
+  const [projectName, gitContext] = await Promise.all([readProjectName(workDir), readGitContext(workDir)]);
+  const now = new Date().toISOString();
+  const branch = gitContext.isRepo
+    ? gitContext.branch ?? '(detached HEAD)'
+    : '(not a git repository)';
+  const latestCommit = gitContext.isRepo
+    ? gitContext.latestCommit ?? '(unavailable)'
+    : '(not a git repository)';
+
+  return [
+    'Environment Context:',
+    `- Working directory (cwd): ${workDir}`,
+    `- Platform: ${process.platform}`,
+    `- Current time: ${now}`,
+    `- Project name: ${projectName ?? '(unknown)'}`,
+    `- Git branch: ${branch}`,
+    `- Latest commit: ${latestCommit}`,
+    '',
+    'ÄãÊÇ mcp-claw£¬Ò»¸ö AI-powered MCP server generator¡£',
+    'ĞĞÎªÔ­Ôò£¨²Î¿¼ OpenCode / Gemini CLI£©£º',
+    '- ÏÈĞĞ¶¯£¬ºó½âÊÍ£ºÄÜµ÷ÓÃ¹¤¾ß¾ÍÏÈµ÷ÓÃ£¬²»ÒªÏÈĞ´³¤¶ÎÍÆÀí¡£',
+    '- ±£³Ö¼ò½à£ºÄ¬ÈÏ 1-4 ¾ä£»Ö»ÔÚÓÃ»§ÒªÇóÊ±Õ¹¿ªÏ¸½Ú¡£',
+    '- »ùÓÚÖ¤¾İ£º²»Òª²Â²âÎÄ¼ş»ò API Ï¸½Ú£¬ÏÈÓÃ¹¤¾ßÄÃµ½ÊÂÊµ¡£',
+    '',
+    '¹¤¾ßµ÷ÓÃ¹æÔò£º',
+    '- ÓÃ»§Ìáµ½¡°ÏîÄ¿Ä¿Â¼/¸ùÄ¿Â¼/µ±Ç°Ä¿Â¼/Õâ¸öÎÄ¼ş¼Ğ/·ÅÔÚÕâÀï¡±Ê±£¬ÓÅÏÈµ÷ÓÃ read_folder£»path Ê¡ÂÔÊ±Ä¬ÈÏ cwd¡£',
+    '- ÓÃ»§Ã»¸øÂ·¾¶µ«Ëµ¡°ÎÒ·ÅÁËÎÄµµ/ÎÄ¼ş¡±£¬ÏÈµ÷ÓÃ read_folder£¬²»ÒªÏÈ×·ÎÊ¡£',
+    '- ÓÃ»§¸ø³ö URL »òÔÚÏßÎÄµµÊ±£¬µ÷ÓÃ fetch_url¡£',
+    '- ĞÅÏ¢×ã¹»ÇÒÓÃ»§Í¬ÒâÉú³ÉÊ±£¬µ÷ÓÃ generate_mcp¡£',
+    '- Éú³ÉÍê³Éºó£¬ÓÃ»§ÒªÇóÑéÖ¤»òÄãĞèÒªÈ·ÈÏ¿ÉÔËĞĞĞÔÊ±£¬µ÷ÓÃ run_tests¡£',
+    '- ÓÃ»§Ñ¯ÎÊÀúÊ·¼ÇÂ¼»òÉÏ´Î½á¹ûÊ±£¬µ÷ÓÃ show_history¡£',
+    '',
+    '¹¤×÷Á÷³Ì£º',
+    '1) ¶ÁÈ¡²¢Àí½â API ÎÄµµ',
+    '2) Éè¼Æ MCP tools',
+    '3) Éú³É¿ÉÔËĞĞµÄ MCP server ´úÂë',
+    '4) ²âÊÔ²¢¸ø³öÏÂÒ»²½½¨Òé',
+    '',
+    'Ä¬ÈÏÓÃÖĞÎÄ»Ø¸´£¨³ı·ÇÓÃ»§Ê¹ÓÃÆäËûÓïÑÔ£©¡£Ó¢ÎÄ¼¼ÊõÊõÓï±£ÁôÓ¢ÎÄ¡£'
+  ].join('\n');
 }
 
 export type ToolHandler = (args: Record<string, unknown>) => Promise<string>;
@@ -153,7 +260,8 @@ export class ChatSession {
   }
 
   private async callLlm() {
-    const messages: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }, ...this.history];
+    const systemPrompt = await buildSystemPrompt(this.config.workDir);
+    const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }, ...this.history];
     return this.llm.chat(messages, this.tools);
   }
 
@@ -191,10 +299,9 @@ export class ChatSession {
   }
 
   private async readFolder(args: Record<string, unknown>): Promise<string> {
-    const pathValue = typeof args.path === 'string' ? args.path : '';
-    if (!pathValue) {
-      return JSON.stringify({ error: 'Missing required argument: path' });
-    }
+    const pathValue = typeof args.path === 'string' && args.path.trim()
+      ? args.path.trim()
+      : this.config.workDir;
 
     const folderPath = this.resolvePath(pathValue);
     if (!existsSync(folderPath)) {

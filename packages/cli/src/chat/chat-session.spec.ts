@@ -32,7 +32,7 @@ describe('ChatSession', () => {
         ]
       })
       .mockResolvedValueOnce({
-        content: 'åˆ†æå®Œæˆï¼Œå·²å‡†å¤‡ä¸‹ä¸€æ­¥ã€‚',
+        content: '·ÖÎöÍê³É£¬ÒÑ×¼±¸ÏÂÒ»²½¡£',
         finish_reason: 'stop'
       });
     const readFolder = jest.fn().mockResolvedValue('{"fileCount":2}');
@@ -46,12 +46,22 @@ describe('ChatSession', () => {
       }
     });
 
-    await session.send('æˆ‘æŠŠ Stripe API æ–‡æ¡£æ”¾åœ¨ ./docs/ ä¸‹äº†ï¼Œå¸®æˆ‘çœ‹çœ‹');
+    await session.send('ÎÒ°Ñ Stripe API ÎÄµµ·ÅÔÚ ./docs/ ÏÂÁË£¬°ïÎÒ¿´¿´');
 
     expect(chat).toHaveBeenCalledTimes(2);
     expect(readFolder).toHaveBeenCalledWith({ path: './docs' });
     expect(write).toHaveBeenCalledWith('[read_folder] ...\n');
-    expect(write).toHaveBeenCalledWith('åˆ†æå®Œæˆï¼Œå·²å‡†å¤‡ä¸‹ä¸€æ­¥ã€‚\n');
+    expect(write).toHaveBeenCalledWith('·ÖÎöÍê³É£¬ÒÑ×¼±¸ÏÂÒ»²½¡£\n');
+
+    const firstCallMessages = chat.mock.calls[0]?.[0] as Array<{
+      role: string;
+      content: string;
+    }>;
+    const systemPrompt = firstCallMessages[0]?.content ?? '';
+    expect(systemPrompt).toContain(`Working directory (cwd): ${config.workDir}`);
+    expect(systemPrompt).toContain(`Platform: ${process.platform}`);
+    expect(systemPrompt).toMatch(/Current time:\s+\d{4}-\d{2}-\d{2}T/);
+    expect(systemPrompt).toContain('Git branch:');
 
     const secondCallMessages = chat.mock.calls[1]?.[0] as Array<{
       role: string;
@@ -66,7 +76,7 @@ describe('ChatSession', () => {
 
   it('stops immediately when model returns final response', async () => {
     const chat = jest.fn().mockResolvedValue({
-      content: 'å¥½çš„ï¼Œæˆ‘å…ˆè¯»å–æ–‡æ¡£ã€‚',
+      content: 'ºÃµÄ£¬ÎÒÏÈ¶ÁÈ¡ÎÄµµ¡£',
       finish_reason: 'stop'
     });
     const write = jest.fn();
@@ -75,9 +85,9 @@ describe('ChatSession', () => {
       output: { write }
     });
 
-    await session.send('å¼€å§‹');
+    await session.send('¿ªÊ¼');
 
     expect(chat).toHaveBeenCalledTimes(1);
-    expect(write).toHaveBeenCalledWith('å¥½çš„ï¼Œæˆ‘å…ˆè¯»å–æ–‡æ¡£ã€‚\n');
+    expect(write).toHaveBeenCalledWith('ºÃµÄ£¬ÎÒÏÈ¶ÁÈ¡ÎÄµµ¡£\n');
   });
 });

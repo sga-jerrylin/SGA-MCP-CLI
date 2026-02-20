@@ -9,22 +9,26 @@ export type ChatToolName =
   | 'run_tests'
   | 'show_history';
 
-export function buildToolDefinitions(_config: ChatConfig): ToolDefinition[] {
+export function buildToolDefinitions(config: ChatConfig): ToolDefinition[] {
   return [
     {
       type: 'function',
       function: {
         name: 'read_folder',
-        description: 'Read a folder, list files, and return text content for documentation files.',
+        description: [
+          'Inspect local project files for API docs and implementation clues.',
+          'Use this first when the user mentions current/project directory, a folder, or gives no explicit path.',
+          `If path is omitted, default to current working directory: ${config.workDir}.`
+        ].join(' '),
         parameters: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: 'Folder path to inspect'
+              description: `Optional folder path. Relative paths are resolved from ${config.workDir}.`
             }
           },
-          required: ['path'],
+          required: [],
           additionalProperties: false
         }
       }
@@ -33,13 +37,16 @@ export function buildToolDefinitions(_config: ChatConfig): ToolDefinition[] {
       type: 'function',
       function: {
         name: 'fetch_url',
-        description: 'Fetch and parse web content from an API documentation URL.',
+        description: [
+          'Fetch API documentation from a URL using browser rendering.',
+          'Use this when user provides an http/https URL or asks to analyze online docs.'
+        ].join(' '),
         parameters: {
           type: 'object',
           properties: {
             url: {
               type: 'string',
-              description: 'Web URL to fetch'
+              description: 'Target documentation URL'
             }
           },
           required: ['url'],
@@ -51,7 +58,10 @@ export function buildToolDefinitions(_config: ChatConfig): ToolDefinition[] {
       type: 'function',
       function: {
         name: 'generate_mcp',
-        description: 'Generate an MCP server from a local path or URL source.',
+        description: [
+          'Generate MCP server code from analyzed source content.',
+          'Use after enough documentation context is collected and the user confirms generation.'
+        ].join(' '),
         parameters: {
           type: 'object',
           properties: {
@@ -61,7 +71,7 @@ export function buildToolDefinitions(_config: ChatConfig): ToolDefinition[] {
             },
             output_dir: {
               type: 'string',
-              description: 'Optional output directory'
+              description: 'Optional output directory for generated files'
             }
           },
           required: ['source'],
@@ -73,13 +83,16 @@ export function buildToolDefinitions(_config: ChatConfig): ToolDefinition[] {
       type: 'function',
       function: {
         name: 'run_tests',
-        description: 'Run tests for a generated MCP server directory.',
+        description: [
+          'Run tests against a generated MCP server project.',
+          'Use this after generation or when the user asks to verify quality.'
+        ].join(' '),
         parameters: {
           type: 'object',
           properties: {
             dir: {
               type: 'string',
-              description: 'Directory to test'
+              description: 'Directory containing generated server code'
             }
           },
           required: ['dir'],
@@ -91,7 +104,7 @@ export function buildToolDefinitions(_config: ChatConfig): ToolDefinition[] {
       type: 'function',
       function: {
         name: 'show_history',
-        description: 'Show recent MCP generation history from local memory sessions.',
+        description: 'Show recent generation sessions and last run metadata for this workspace.',
         parameters: {
           type: 'object',
           properties: {},
@@ -101,4 +114,3 @@ export function buildToolDefinitions(_config: ChatConfig): ToolDefinition[] {
     }
   ];
 }
-
