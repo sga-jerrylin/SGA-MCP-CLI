@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { SgaConfig } from '../config/sga-config';
 import {
   buildCodegenPrompt,
   InMemoryPackager,
@@ -28,6 +29,7 @@ import { DockerInspectTool } from '../tools/docker-tool';
 import { FsTool } from '../tools/fs-tool';
 import { HttpFetchTool } from '../tools/http-tool';
 import { PdfTool } from '../tools/pdf-tool';
+import { writeManifest } from '../utils/manifest-writer';
 import { PipelineProgress } from '../utils/pipeline-progress';
 
 export interface RunCommandInput {
@@ -144,10 +146,7 @@ function parsePlanDoc(planDoc: string): IR {
   return defaultIr();
 }
 
-function createCore(options: {
-  dryRun: boolean;
-  llmProvider?: OpenRouterProvider;
-}): McpClawCore {
+function createCore(options: { dryRun: boolean; llmProvider?: OpenRouterProvider }): McpClawCore {
   const packager = new InMemoryPackager();
 
   return new McpClawCore({
@@ -240,9 +239,12 @@ async function createReporter(reportTo: string | undefined, root: string): Promi
   const baseUrl = normalizeBaseUrl(reportTo);
 
   try {
-    const response = await postJson<ApiResponse<CliRunCreateResponse>>(`${baseUrl}/monitor/cli-runs`, {
-      root
-    });
+    const response = await postJson<ApiResponse<CliRunCreateResponse>>(
+      `${baseUrl}/monitor/cli-runs`,
+      {
+        root
+      }
+    );
     const runId = response.data.runId;
 
     return {
@@ -286,11 +288,22 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
 
   try {
     const env = loadEnvConfig(input.root);
-    const apiKey = env.get('OPENROUTER_API_KEY') ?? process.env.OPENROUTER_API_KEY ?? '';
+    const globalConfig = new SgaConfig();
+    const apiKey =
+      env.get('OPENROUTER_API_KEY') ??
+      process.env.OPENROUTER_API_KEY ??
+      (globalConfig.get('openrouter.apiKey') as string | undefined) ??
+      '';
     const coderModel =
-      env.get('LLM_CODER_MODEL') ?? process.env.LLM_CODER_MODEL ?? DEFAULT_CODER_MODEL;
+      env.get('LLM_CODER_MODEL') ??
+      process.env.LLM_CODER_MODEL ??
+      (globalConfig.get('model.coder') as string | undefined) ??
+      DEFAULT_CODER_MODEL;
     const baseUrl =
-      env.get('OPENROUTER_BASE_URL') ?? process.env.OPENROUTER_BASE_URL ?? DEFAULT_BASE_URL;
+      env.get('OPENROUTER_BASE_URL') ??
+      process.env.OPENROUTER_BASE_URL ??
+      (globalConfig.get('openrouter.baseUrl') as string | undefined) ??
+      DEFAULT_BASE_URL;
     const urls = input.urls ?? [];
     const llmProvider =
       !input.dryRun && apiKey
@@ -338,6 +351,10 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
       root: input.root,
       planDoc: input.dryRun ? '' : JSON.stringify(architectResult.ir, null, 2)
     });
+    if (!input.dryRun) {
+      const manifestPath = await writeManifest(input.root, architectResult.ir);
+      input.logger.log(`Builder - wrote manifest: ${manifestPath}`);
+    }
     const builderDoneMessage = `wrote ${builderResult.writtenFiles.length} files`;
     progress.done('Builder', builderDoneMessage);
     input.logger.log(`Builder - ${builderDoneMessage}`);
