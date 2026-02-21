@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  pkg-a:
+    build:
+      context: E:/mcp/packages/backend/hub-packages/pkg-a
+      dockerfile: Dockerfile
+    container_name: mcp-pkg-a
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
