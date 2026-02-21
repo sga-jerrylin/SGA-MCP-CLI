@@ -1,6 +1,7 @@
 import type { IR } from '../ir/ir';
 
 import { buildCodegenPrompt } from './prompt-builder';
+import { renderFromIR } from './template-renderer';
 
 export interface GeneratedFile {
   path: string;
@@ -34,6 +35,10 @@ export function parseGeneratedFiles(raw: string): GeneratedFile[] {
 
 export class CodegenService {
   public constructor(private readonly llm: LlmClient) {}
+
+  public render(ir: IR): GeneratedFile[] {
+    return renderFromIR(ir);
+  }
 
   public async generate(ir: IR): Promise<GeneratedFile[]> {
     const prompt = buildCodegenPrompt(ir);

@@ -11,6 +11,7 @@ export * from './autofix/patch-planner';
 export * from './autofix/repair-loop';
 export * from './codegen/prompt-builder';
 export * from './codegen/codegen.service';
+export * from './codegen/template-renderer';
 export * from './sandbox/sandbox-port';
 export * from './sandbox/sandbox-http.adapter';
 export * from './packager/packager';

@@ -44,10 +44,17 @@ describe('buildCodegenPrompt', () => {
     expect(prompt).toContain('- name: listCustomers');
     expect(prompt).toContain('- method: GET');
     expect(prompt).toContain('- path: /customers');
-    expect(prompt).toContain('- param: tenantId, type: string, required, description: Tenant identifier');
-    expect(prompt).toContain('- param: limit, type: number, optional, description: Maximum number of records');
+    expect(prompt).toContain(
+      '- param: tenantId, type: string, required, description: Tenant identifier'
+    );
+    expect(prompt).toContain(
+      '- param: limit, type: number, optional, description: Maximum number of records'
+    );
     expect(prompt).toContain('===FILE===');
     expect(prompt).toContain('src/index.ts');
     expect(prompt).toContain('STRICT OUTPUT FORMAT (MANDATORY)');
+    expect(prompt).toContain('TypeScript OOM Guard (MANDATORY for src/server.ts)');
+    expect(prompt).toContain('function toInputSchema(schema: unknown): Tool["inputSchema"]');
+    expect(prompt).toContain('NEVER use: zodToJsonSchema(mySchema) as Tool["inputSchema"]');
   });
 });
