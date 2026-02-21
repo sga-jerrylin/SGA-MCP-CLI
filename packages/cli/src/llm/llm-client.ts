@@ -1,3 +1,7 @@
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export interface LlmProvider {
   name: string;
   complete(prompt: string): Promise<string>;
@@ -57,7 +61,9 @@ interface OpenRouterChatCompletionResponse {
   }>;
 }
 
-function extractTextContent(content: string | Array<{ type?: string; text?: string }> | undefined): string {
+function extractTextContent(
+  content: string | Array<{ type?: string; text?: string }> | undefined
+): string {
   if (typeof content === 'string') {
     return content;
   }
@@ -73,11 +79,13 @@ function extractTextContent(content: string | Array<{ type?: string; text?: stri
 }
 
 function extractToolCalls(
-  calls: Array<{
-    id?: string;
-    type?: string;
-    function?: { name?: string; arguments?: string };
-  }> | undefined
+  calls:
+    | Array<{
+        id?: string;
+        type?: string;
+        function?: { name?: string; arguments?: string };
+      }>
+    | undefined
 ): ToolCall[] {
   if (!Array.isArray(calls)) {
     return [];
@@ -114,43 +122,74 @@ export class OpenRouterProvider implements LlmProvider {
 
   public async chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<ChatResponse> {
     const endpoint = `${this.baseUrl.replace(/\/+$/, '')}/chat/completions`;
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://github.com/mcp-claw',
-        'X-Title': 'MCP-Claw'
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages: messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-          ...(message.tool_call_id ? { tool_call_id: message.tool_call_id } : {}),
-          ...(message.tool_calls ? { tool_calls: message.tool_calls } : {})
-        })),
-        ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
-        max_tokens: 8192
-      })
+    const body = JSON.stringify({
+      model: this.model,
+      messages: messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+        ...(message.tool_call_id ? { tool_call_id: message.tool_call_id } : {}),
+        ...(message.tool_calls ? { tool_calls: message.tool_calls } : {})
+      })),
+      ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
+      max_tokens: 8192
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenRouter error: ${response.status} ${await response.text()}`);
+    const maxRetries = 3;
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://github.com/mcp-claw',
+            'X-Title': 'MCP-Claw'
+          },
+          body
+        });
+
+        if (response.status >= 500 || response.status === 429) {
+          lastError = new Error(`OpenRouter error: ${response.status} ${await response.text()}`);
+          await sleep(1000 * Math.pow(2, attempt));
+          continue;
+        }
+
+        if (!response.ok) {
+          throw new Error(`OpenRouter error: ${response.status} ${await response.text()}`);
+        }
+
+        const payload = (await response.json()) as OpenRouterChatCompletionResponse;
+        const choice = payload.choices?.[0];
+        const content = extractTextContent(choice?.message?.content);
+        const toolCalls = extractToolCalls(choice?.message?.tool_calls);
+        const finishReason: ChatResponse['finish_reason'] =
+          toolCalls.length > 0 || choice?.finish_reason === 'tool_calls' ? 'tool_calls' : 'stop';
+
+        return {
+          content,
+          finish_reason: finishReason,
+          ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {})
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const msg = lastError.message;
+        // Retry on network errors (timeout, ECONNRESET, etc.)
+        if (
+          msg.includes('fetch failed') ||
+          msg.includes('Timeout') ||
+          msg.includes('ECONNRESET') ||
+          msg.includes('ECONNREFUSED')
+        ) {
+          await sleep(1000 * Math.pow(2, attempt));
+          continue;
+        }
+        throw lastError;
+      }
     }
 
-    const payload = (await response.json()) as OpenRouterChatCompletionResponse;
-    const choice = payload.choices?.[0];
-    const content = extractTextContent(choice?.message?.content);
-    const toolCalls = extractToolCalls(choice?.message?.tool_calls);
-    const finishReason: ChatResponse['finish_reason'] =
-      toolCalls.length > 0 || choice?.finish_reason === 'tool_calls' ? 'tool_calls' : 'stop';
-
-    return {
-      content,
-      finish_reason: finishReason,
-      ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {})
-    };
+    throw lastError ?? new Error('OpenRouter request failed after retries');
   }
 
   public async complete(prompt: string): Promise<string> {

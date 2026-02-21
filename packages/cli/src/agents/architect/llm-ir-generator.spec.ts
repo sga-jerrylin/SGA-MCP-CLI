@@ -50,22 +50,13 @@ describe('LlmIrGenerator', () => {
     expect(ir.system.baseUrl).toBe('https://crm.example.com');
   });
 
-  it('returns fallback IR on invalid JSON', async () => {
+  it('throws on invalid JSON from LLM', async () => {
     const llm = {
       complete: jest.fn().mockResolvedValue('this-is-not-json')
     };
 
     const generator = new LlmIrGenerator(llm);
-    const ir = await generator.generate('broken');
-
-    expect(ir).toEqual({
-      system: {
-        code: 'unknown',
-        baseUrl: 'https://api.example.com',
-        authType: 'none'
-      },
-      tools: []
-    });
+    await expect(generator.generate('broken')).rejects.toThrow('LLM returned invalid JSON');
   });
 
   it('passes full doc up to 80 000 chars to LLM', async () => {

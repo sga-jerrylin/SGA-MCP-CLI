@@ -143,13 +143,15 @@ export class LlmIrGenerator {
       truncated
     ].join('\n');
 
+    const completion = await this.llm.complete(prompt);
+    const cleaned = stripMarkdownFences(completion);
+
     try {
-      const completion = await this.llm.complete(prompt);
-      const cleaned = stripMarkdownFences(completion);
       const parsed = JSON.parse(cleaned) as unknown;
       return normalizeIr(parsed) ?? FALLBACK_IR;
     } catch {
-      return FALLBACK_IR;
+      // LLM returned invalid JSON — fall back, but log a warning
+      throw new Error(`LLM returned invalid JSON. First 200 chars: ${cleaned.slice(0, 200)}`);
     }
   }
 }
