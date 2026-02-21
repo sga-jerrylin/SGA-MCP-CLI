@@ -134,6 +134,7 @@ function renderPackageJson(ir: IR): string {
     name: `${toPackageName(ir.system.code)}-mcp-server`,
     version: '1.0.0',
     description: `MCP server for ${ir.system.code}`,
+    type: 'module',
     main: 'dist/index.js',
     scripts: {
       build: 'tsc',
@@ -157,9 +158,10 @@ function renderTsConfig(): string {
   return `${JSON.stringify(
     {
       compilerOptions: {
-        target: 'ES2020',
-        module: 'commonjs',
-        lib: ['ES2020'],
+        target: 'ES2022',
+        module: 'Node16',
+        moduleResolution: 'Node16',
+        lib: ['ES2022'],
         outDir: './dist',
         rootDir: './src',
         strict: true,

@@ -174,7 +174,12 @@ describe('renderFromIR', () => {
 
     const packageJson = fileContent(files, 'package.json');
     expect(packageJson).toContain('"@modelcontextprotocol/sdk"');
+    expect(packageJson).toContain('"type": "module"');
     expect(packageJson).not.toContain('zod-to-json-schema');
+
+    const tsconfig = fileContent(files, 'tsconfig.json');
+    expect(tsconfig).toContain('"module": "Node16"');
+    expect(tsconfig).toContain('"moduleResolution": "Node16"');
   });
 
   it('renders valid empty-tool server and compiles under strict TypeScript checks', () => {

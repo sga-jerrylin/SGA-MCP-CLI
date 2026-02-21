@@ -4,7 +4,6 @@ import { promisify } from 'node:util';
 const execAsync = promisify(exec);
 
 const DEFAULT_STARTUP_WAIT_MS = 3000;
-const DEFAULT_MCP_PORT = 13579;
 
 export interface IntegrationTestInput {
   dir: string;
@@ -23,16 +22,10 @@ export interface IntegrationTestReport {
 export interface IntegrationTesterDeps {
   exec?: (command: string, options?: object) => Promise<{ stdout: string }>;
   spawn?: typeof nodeSpawn;
-  fetchFn?: typeof fetch;
   startupWaitMs?: number;
-  port?: number;
 }
 
-interface ToolsListResponse {
-  result?: {
-    tools?: Array<{ name: string }>;
-  };
-}
+type JsonRpcMessage = Record<string, unknown>;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -44,24 +37,69 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function frameMcpMessage(msg: object): Buffer {
+  const body = JSON.stringify(msg);
+  const header = `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n`;
+  return Buffer.from(header + body);
+}
+
+function parseMcpMessages(data: Buffer): { messages: JsonRpcMessage[]; rest: Buffer } {
+  const messages: JsonRpcMessage[] = [];
+  let offset = 0;
+
+  while (offset < data.length) {
+    const headerEnd = data.indexOf('\r\n\r\n', offset, 'utf8');
+    if (headerEnd === -1) {
+      break;
+    }
+
+    const headerText = data.slice(offset, headerEnd).toString('utf8');
+    const match = headerText.match(/Content-Length:\s*(\d+)/i);
+    if (!match) {
+      break;
+    }
+
+    const bodyLen = Number.parseInt(match[1], 10);
+    const bodyStart = headerEnd + 4;
+    const bodyEnd = bodyStart + bodyLen;
+    if (bodyEnd > data.length) {
+      break;
+    }
+
+    const body = data.slice(bodyStart, bodyEnd).toString('utf8');
+    try {
+      const parsed = JSON.parse(body) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        messages.push(parsed as JsonRpcMessage);
+      }
+    } catch {
+      // Ignore malformed messages in parser.
+    }
+
+    offset = bodyEnd;
+  }
+
+  return {
+    messages,
+    rest: data.slice(offset)
+  };
+}
+
 export class IntegrationTester {
   private readonly exec: (command: string, options?: object) => Promise<{ stdout: string }>;
   private readonly spawn: typeof nodeSpawn;
-  private readonly fetchFn: typeof fetch;
   private readonly startupWaitMs: number;
-  private readonly port: number;
 
   public constructor(deps: IntegrationTesterDeps = {}) {
     this.exec =
       deps.exec ?? ((command, options) => execAsync(command, { windowsHide: true, ...options }));
     this.spawn = deps.spawn ?? nodeSpawn;
-    this.fetchFn = deps.fetchFn ?? fetch;
     this.startupWaitMs = deps.startupWaitMs ?? DEFAULT_STARTUP_WAIT_MS;
-    this.port = deps.port ?? DEFAULT_MCP_PORT;
   }
 
   public async run(input: IntegrationTestInput): Promise<IntegrationTestReport> {
     try {
+      await this.exec('npm install', { cwd: input.dir, timeout: 120_000 });
       await this.exec('npm run build', { cwd: input.dir, timeout: 120_000 });
     } catch (error) {
       return {
@@ -79,8 +117,7 @@ export class IntegrationTester {
       const env = {
         ...process.env,
         ...input.authEnv,
-        MCP_BASE_URL: input.baseUrl,
-        PORT: String(this.port)
+        MCP_BASE_URL: input.baseUrl
       };
       serverProcess = this.spawn('node', ['dist/index.js'], {
         cwd: input.dir,
@@ -91,54 +128,78 @@ export class IntegrationTester {
         serverLogs.push(typeof chunk === 'string' ? chunk : chunk.toString());
       });
 
-      await sleep(this.startupWaitMs);
-
-      const listResponse = await this.fetchFn(`http://localhost:${this.port}/mcp/v1/tools/list`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
+      const messageQueue: JsonRpcMessage[] = [];
+      let stdoutBuffer: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+      serverProcess.stdout?.on('data', (chunk: Buffer | string) => {
+        const chunkBuffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+        stdoutBuffer = Buffer.concat([stdoutBuffer, chunkBuffer]);
+        const parsed = parseMcpMessages(stdoutBuffer);
+        stdoutBuffer = parsed.rest;
+        messageQueue.push(...parsed.messages);
       });
 
-      if (!listResponse.ok) {
-        throw new Error(`tools/list HTTP ${listResponse.status}`);
-      }
+      await sleep(this.startupWaitMs);
 
-      const listBody = (await listResponse.json()) as ToolsListResponse;
-      const tools = listBody.result?.tools ?? [];
-      const toolsCalled: string[] = [];
-
-      if (tools.length > 0) {
-        const firstTool = tools[0].name;
-
-        try {
-          const callResponse = await this.fetchFn(
-            `http://localhost:${this.port}/mcp/v1/tools/call`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 2,
-                method: 'tools/call',
-                params: {
-                  name: firstTool,
-                  arguments: {}
-                }
-              })
-            }
-          );
-          if (callResponse.ok) {
-            toolsCalled.push(firstTool);
-          }
-        } catch {
-          // Connectivity was already proven by tools/list.
+      const writeMessage = (message: JsonRpcMessage): void => {
+        if (!serverProcess?.stdin) {
+          throw new Error('Server stdin is not available');
         }
+        serverProcess.stdin.write(frameMcpMessage(message));
+      };
+
+      const waitForResponseById = async (id: number, timeoutMs = 5000): Promise<JsonRpcMessage> => {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          const idx = messageQueue.findIndex((message) => message.id === id);
+          if (idx >= 0) {
+            const [found] = messageQueue.splice(idx, 1);
+            return found;
+          }
+          await sleep(25);
+        }
+        throw new Error(`Timeout waiting for MCP response id=${id}`);
+      };
+
+      writeMessage({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: {
+            name: 'integration-test',
+            version: '1.0.0'
+          }
+        }
+      });
+      await waitForResponseById(1);
+
+      writeMessage({
+        jsonrpc: '2.0',
+        method: 'notifications/initialized'
+      });
+
+      writeMessage({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/list'
+      });
+      const toolsListResponse = await waitForResponseById(2);
+
+      const result = toolsListResponse.result as { tools?: Array<{ name?: unknown }> } | undefined;
+      const tools =
+        result?.tools?.filter((tool): tool is { name: string } => typeof tool?.name === 'string') ??
+        [];
+
+      if (!toolsListResponse.result && toolsListResponse.error) {
+        throw new Error(`tools/list failed: ${JSON.stringify(toolsListResponse.error)}`);
       }
 
       return {
         passed: true,
         toolsFound: tools.length,
-        toolsCalled,
+        toolsCalled: [],
         serverLog: serverLogs.slice(-20).join('')
       };
     } catch (error) {
