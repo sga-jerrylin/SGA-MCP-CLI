@@ -25,7 +25,7 @@ export interface GenerateCommandResult {
  *   stripe_docs.yaml    → mcp-server-stripe-docs
  *   https://api.x.com/docs → mcp-server-api-x-com
  */
-function deriveProjectName(source: string): string {
+export function deriveProjectName(source: string): string {
   let raw: string;
 
   if (isUrl(source)) {

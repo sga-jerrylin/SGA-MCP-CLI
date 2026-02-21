@@ -99,7 +99,7 @@ export class IntegrationTester {
 
   public async run(input: IntegrationTestInput): Promise<IntegrationTestReport> {
     try {
-      await this.exec('npm install', { cwd: input.dir, timeout: 120_000 });
+      await this.exec('npm install --legacy-peer-deps', { cwd: input.dir, timeout: 120_000 });
       await this.exec('npm run build', { cwd: input.dir, timeout: 120_000 });
     } catch (error) {
       return {

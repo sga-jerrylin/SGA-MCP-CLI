@@ -8,7 +8,7 @@ import chalk from 'chalk';
 
 import { IntegrationTester } from '../agents/tester/integration-tester';
 import { TestRunner } from '../agents/tester/test-runner';
-import { generateCommand, isUrl } from '../commands/generate.command';
+import { deriveProjectName, generateCommand, isUrl } from '../commands/generate.command';
 import { publishCommand } from '../commands/publish.command';
 import { SgaConfig } from '../config/sga-config';
 import type { ChatCapableLlmProvider, ChatMessage, ToolCall } from '../llm/llm-client';
@@ -750,6 +750,9 @@ async function buildSystemPrompt(workDir: string, restoredMessages = 0): Promise
     '7) Integration test: call test_integration with the user-provided base_url and auth_env.',
     '8) **STOP again.** Show test results. Ask: "瑕佸彂甯冨埌 MCP Market 鍚楋紵"',
     '   - Do NOT call publish_mcp until user confirms.',
+    '   - publish_mcp requires market_url (e.g. http://localhost:3000) and token (access token).',
+    '   - Token is saved after first use; market_url is saved after first use.',
+    '   - On success, show the returned packageUrl to the user as a clickable link.',
     '',
     '# CRITICAL: Never auto-proceed past step 6. Always pause for user input before integration testing and publishing.',
     '',
@@ -1725,7 +1728,7 @@ export class ChatSession {
 
     const logs: string[] = [];
     const resolvedOutput =
-      outputDir ?? (isUrl(source) ? resolve(this.config.workDir, 'generated-mcp') : undefined);
+      outputDir ?? resolve(this.config.workDir, 'generated', deriveProjectName(source));
 
     const result = await this.generate({
       source,
@@ -1815,8 +1818,15 @@ export class ChatSession {
     }
 
     try {
-      await publishCommand({}, this.resolvePath(dirValue));
-      return JSON.stringify({ status: 'ok', dir: this.resolvePath(dirValue) });
+      const result = await publishCommand({}, this.resolvePath(dirValue));
+      return JSON.stringify({
+        status: 'ok',
+        name: result.name,
+        version: result.version,
+        packageUrl: result.packageUrl,
+        marketUrl: result.marketUrl,
+        dir: this.resolvePath(dirValue)
+      });
     } catch (error) {
       return JSON.stringify({ error: formatError(error) });
     }
@@ -2121,7 +2131,9 @@ export class ChatSession {
         return `${passed} 路 ${tools} tools`;
       }
       case 'publish_mcp':
-        return result.status === 'ok' ? 'published' : 'done';
+        return result.status === 'ok'
+          ? `published → ${String(result.packageUrl ?? result.marketUrl ?? 'market')}`
+          : 'done';
       case 'show_history':
         return 'loaded';
       case 'record_learning':

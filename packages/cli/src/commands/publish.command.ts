@@ -89,10 +89,17 @@ function resolvePublishPayload(
   };
 }
 
+export interface PublishResult {
+  name: string;
+  version: string;
+  marketUrl: string;
+  packageUrl: string;
+}
+
 export async function publishCommand(
   options: PublishOptions,
   cwd: string = process.cwd()
-): Promise<void> {
+): Promise<PublishResult> {
   const token = getToken();
   if (!token) {
     throw new Error('Not logged in. Run `mcp-claw login` first.');
@@ -129,7 +136,11 @@ export async function publishCommand(
     throw new Error(`Publish failed: HTTP ${response.status} ${text}`);
   }
 
+  const packageUrl = `${marketUrl}/packages/${encodeURIComponent(payload.name)}`;
   console.log(chalk.green(`Published package ${payload.name}@${payload.version}`));
+  console.log(chalk.cyan(`View at: ${packageUrl}`));
+
+  return { name: payload.name, version: payload.version, marketUrl, packageUrl };
 }
 
 export function registerPublishCommand(program: Command): void {
