@@ -7,6 +7,11 @@ export interface PdfExtractResult {
 }
 
 export class PdfTool {
+  public async extract(filePath: string): Promise<string> {
+    const result = await this.extractFromFile(filePath);
+    return result.text;
+  }
+
   public async extractFromFile(filePath: string): Promise<PdfExtractResult> {
     const buffer = await readFile(filePath);
     return this.extractFromBuffer(buffer);

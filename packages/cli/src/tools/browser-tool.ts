@@ -1,5 +1,3 @@
-import { chromium, type Browser } from 'playwright';
-
 export interface BrowserFetchResult {
   url: string;
   html: string;
@@ -21,12 +19,92 @@ function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+function extractLinksFromHtml(html: string, baseUrl: string): string[] {
+  const linkRegex = /href=["']([^"']+)["']/gi;
+  const links: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = linkRegex.exec(html)) !== null) {
+    try {
+      links.push(new URL(match[1], baseUrl).href);
+    } catch {
+      // skip invalid URLs
+    }
+  }
+  return unique(links);
+}
+
+function extractTextFromHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+    .replace(/<header[\s\S]*?<\/header>/gi, '')
+    .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractTitleFromHtml(html: string): string {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return match ? normalizeText(match[1]) : '';
+}
+
+async function fetchWithNative(url: string, timeoutMs: number): Promise<BrowserFetchResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'mcp-claw/1.0' }
+    });
+    const html = await response.text();
+    const finalUrl = response.url || url;
+    const links = extractLinksFromHtml(html, finalUrl);
+
+    return {
+      url: finalUrl,
+      html,
+      text: extractTextFromHtml(html),
+      title: extractTitleFromHtml(html),
+      links,
+      openApiUrls: links.filter(isOpenApiLink)
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export class BrowserTool {
-  protected async launchBrowser(): Promise<Browser> {
+  protected async launchBrowser(): Promise<any> {
+    const { chromium } = await import('playwright');
     return chromium.launch({ headless: true });
   }
 
   public async fetch(url: string, timeoutMs = 30_000): Promise<BrowserFetchResult> {
+    try {
+      return await this.fetchWithBrowser(url, timeoutMs);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : '';
+      if (
+        msg.includes('Executable') ||
+        msg.includes('browserType.launch') ||
+        msg.includes('Cannot find module')
+      ) {
+        return fetchWithNative(url, timeoutMs);
+      }
+      throw error;
+    }
+  }
+
+  private async fetchWithBrowser(url: string, timeoutMs: number): Promise<BrowserFetchResult> {
     const browser = await this.launchBrowser();
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -59,7 +137,6 @@ export class BrowserTool {
       });
 
       const links = unique(extracted.links);
-      const openApiUrls = links.filter(isOpenApiLink);
 
       return {
         url: page.url(),
@@ -67,7 +144,7 @@ export class BrowserTool {
         text: normalizeText(extracted.text),
         title: normalizeText(extracted.title),
         links,
-        openApiUrls
+        openApiUrls: links.filter(isOpenApiLink)
       };
     } finally {
       await context.close();
