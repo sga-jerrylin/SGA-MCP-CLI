@@ -1,6 +1,9 @@
 import type { McpServer, McpServerDetail, ToolsListResponse } from '@sga/shared';
 import { RuntimeController } from './runtime.controller';
 import { RuntimeService } from './runtime.service';
+import type { AuthVaultService } from '../auth-vault/auth-vault.service';
+import type { Repository } from 'typeorm';
+import type { CredentialEntity } from '../auth-vault/entities/credential.entity';
 
 describe('RuntimeController', () => {
   const server: McpServer = {
@@ -33,6 +36,8 @@ describe('RuntimeController', () => {
     getServer: jest.Mock<Promise<McpServerDetail>, [string]>;
     listTools: jest.Mock<Promise<ToolsListResponse>, [string]>;
   };
+  let mockVaultService: jest.Mocked<Pick<AuthVaultService, 'setCredential' | 'deleteCredential'>>;
+  let mockCredentialRepo: jest.Mocked<Pick<Repository<CredentialEntity>, 'find'>>;
   let controller: RuntimeController;
 
   beforeEach(() => {
@@ -41,7 +46,18 @@ describe('RuntimeController', () => {
       getServer: jest.fn().mockResolvedValue(detail),
       listTools: jest.fn().mockResolvedValue(tools)
     };
-    controller = new RuntimeController(service as unknown as RuntimeService);
+    mockVaultService = {
+      setCredential: jest.fn().mockResolvedValue({}),
+      deleteCredential: jest.fn().mockResolvedValue(true)
+    };
+    mockCredentialRepo = {
+      find: jest.fn().mockResolvedValue([])
+    };
+    controller = new RuntimeController(
+      service as unknown as RuntimeService,
+      mockVaultService as unknown as AuthVaultService,
+      mockCredentialRepo as unknown as Repository<CredentialEntity>
+    );
   });
 
   it('returns runtime servers', async () => {

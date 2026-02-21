@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CredentialEntity } from './entities/credential.entity';
 import { encryptAes256Gcm, decryptAes256Gcm } from './crypto/vault-crypto';
+import { VAULT_MASTER_KEY } from './auth-vault.module';
 
 export interface SetCredentialInput {
   tenantId: string;
@@ -17,6 +18,7 @@ export class AuthVaultService {
   constructor(
     @InjectRepository(CredentialEntity)
     private readonly repo: Repository<CredentialEntity>,
+    @Inject(VAULT_MASTER_KEY)
     private readonly masterKey: Buffer
   ) {}
 
