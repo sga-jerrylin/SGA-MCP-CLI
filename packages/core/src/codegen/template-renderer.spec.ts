@@ -180,6 +180,10 @@ describe('renderFromIR', () => {
     const tsconfig = fileContent(files, 'tsconfig.json');
     expect(tsconfig).toContain('"module": "Node16"');
     expect(tsconfig).toContain('"moduleResolution": "Node16"');
+
+    const manifest = fileContent(files, 'manifest.json');
+    expect(manifest).toContain('"description": "MCP server for sga-web API"');
+    expect(manifest).toContain('"toolsCount": 1');
   });
 
   it('renders valid empty-tool server and compiles under strict TypeScript checks', () => {

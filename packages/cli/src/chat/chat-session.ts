@@ -1819,11 +1819,12 @@ export class ChatSession {
 
     try {
       const result = await publishCommand({}, this.resolvePath(dirValue));
+      const packageUrl = `${result.marketUrl}/repository`;
       return JSON.stringify({
         status: 'ok',
         name: result.name,
         version: result.version,
-        packageUrl: result.packageUrl,
+        packageUrl,
         marketUrl: result.marketUrl,
         dir: this.resolvePath(dirValue)
       });

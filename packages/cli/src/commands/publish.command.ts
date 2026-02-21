@@ -1,7 +1,10 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { Writable } from 'node:stream';
 import { Command } from 'commander';
 import chalk from 'chalk';
+import type { Package } from '@sga/shared';
 import { getMarketUrl, getToken } from '../utils/auth';
 
 interface ManifestCredential {
@@ -31,6 +34,48 @@ interface PublishOptions {
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, '');
+}
+
+function slugify(value: string): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return slug || 'generated-package';
+}
+
+async function createTarball(dir: string): Promise<Buffer> {
+  type ArchiverInstance = {
+    on(event: 'error', listener: (error: Error) => void): ArchiverInstance;
+    pipe(stream: Writable): void;
+    directory(src: string, dest: string | false): ArchiverInstance;
+    finalize(): Promise<void>;
+  };
+  type ArchiverFactory = (format: 'tar', options: { gzip: true }) => ArchiverInstance;
+
+  // Lazy-load to avoid module-resolution failures during non-publish command execution.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const archiver = require('archiver') as ArchiverFactory;
+
+  return new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const writable = new Writable({
+      write(chunk: unknown, _encoding, cb) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+        cb();
+      }
+    });
+
+    const archive = archiver('tar', { gzip: true });
+    archive.on('error', reject);
+    writable.on('finish', () => resolve(Buffer.concat(chunks)));
+
+    archive.pipe(writable);
+    archive.directory(dir, false);
+    archive.finalize().catch(reject);
+  });
 }
 
 function readManifest(cwd: string = process.cwd()): PublishManifest {
@@ -108,22 +153,41 @@ export async function publishCommand(
   const marketUrl = normalizeBaseUrl(getMarketUrl());
   const manifest = readManifest(cwd);
   const payload = resolvePublishPayload(manifest, options);
+  const tarball = await createTarball(cwd);
+  const sha256 = createHash('sha256').update(tarball).digest('hex');
+  const packageId = slugify(`${payload.name}-${payload.version}`);
+
+  const packageObj: Package = {
+    id: packageId,
+    name: payload.name,
+    version: payload.version,
+    description: payload.description || '',
+    category: payload.category,
+    toolCount: payload.toolsCount ?? 0,
+    serverCount: 1,
+    sha256,
+    signed: false,
+    downloads: 0,
+    publishedAt: new Date().toISOString(),
+    ...(payload.credentials ? { credentials: payload.credentials } : {})
+  };
 
   const form = new FormData();
-  form.append('name', payload.name);
-  form.append('version', payload.version);
-  form.append('category', payload.category);
-  form.append('description', payload.description);
+  form.append(
+    'file',
+    new Blob([new Uint8Array(tarball)], { type: 'application/gzip' }),
+    `${packageId}.tgz`
+  );
+  form.append(
+    'metadata',
+    JSON.stringify({
+      packageId,
+      manifest: packageObj,
+      autoDeploy: false
+    })
+  );
 
-  if (typeof payload.toolsCount === 'number') {
-    form.append('toolsCount', String(payload.toolsCount));
-  }
-
-  if (payload.credentials) {
-    form.append('credentials', JSON.stringify(payload.credentials));
-  }
-
-  const response = await fetch(`${marketUrl}/packages/publish`, {
+  const response = await fetch(`${marketUrl}/api/sync/push`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`
@@ -136,7 +200,7 @@ export async function publishCommand(
     throw new Error(`Publish failed: HTTP ${response.status} ${text}`);
   }
 
-  const packageUrl = `${marketUrl}/packages/${encodeURIComponent(payload.name)}`;
+  const packageUrl = `${marketUrl}/repository`;
   console.log(chalk.green(`Published package ${payload.name}@${payload.version}`));
   console.log(chalk.cyan(`View at: ${packageUrl}`));
 

@@ -347,6 +347,8 @@ function renderManifest(ir: IR): string {
   const manifest = {
     name: `${toPackageName(ir.system.code)}-mcp-server`,
     version: '1.0.0',
+    description: `MCP server for ${ir.system.code} API`,
+    toolsCount: ir.tools.length,
     tools: ir.tools.map((tool) => ({
       name: tool.name,
       description: tool.description
