@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="repo-view">
     <div class="search-section">
       <a-input-search
@@ -46,32 +46,35 @@
             </a-card-meta>
             <template #actions>
               <div class="downloads"><DownloadOutlined /> {{ item.downloads }}</div>
-              <a-button type="link" @click="handleInstall(item)">下载并安装</a-button>
+              <a-button type="link" @click="openInstallModal(item)">下载并安装</a-button>
             </template>
           </a-card>
         </a-list-item>
       </template>
     </a-list>
+
+    <InstallPackageModal
+      v-model:open="showInstallModal"
+      :package="selectedPackage"
+      @installed="handleInstalled"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, watch } from 'vue';
   import { DownloadOutlined } from '@ant-design/icons-vue';
-  import { message } from 'ant-design-vue';
+  import type { ApiResponse, Package, PaginatedList } from '@sga/shared';
+  import { onMounted, ref, watch } from 'vue';
+  import InstallPackageModal from '@/components/InstallPackageModal.vue';
   import http from '@/utils/http';
-  import type { ApiResponse, PaginatedList, Package } from '@sga/shared';
-
-  interface InstallPackageResponse {
-    packageId: string;
-    pullUrl: string;
-    manifest: Package;
-  }
 
   const searchText = ref('');
   const activeCat = ref('全部');
   const packages = ref<Package[]>([]);
   const loading = ref(false);
+  const selectedPackage = ref<Package | null>(null);
+  const showInstallModal = ref(false);
+
   const categories = ['全部', 'ERP', 'CRM', '通用', 'AI模型', '文档', '办公工具'];
 
   const pagination = ref({
@@ -105,23 +108,18 @@
     }
   };
 
-  const handleInstall = async (pkg: Package): Promise<void> => {
-    try {
-      const response = (await http.post<ApiResponse<InstallPackageResponse>>(
-        `/repo/packages/${pkg.id}/install`
-      )) as unknown as ApiResponse<InstallPackageResponse>;
+  const openInstallModal = (pkg: Package): void => {
+    selectedPackage.value = pkg;
+    showInstallModal.value = true;
+  };
 
-      const storageKey = 'mcp_installed_packages';
-      const raw = localStorage.getItem(storageKey);
-      const installed = raw ? (JSON.parse(raw) as string[]) : [];
-      if (!installed.includes(response.data.packageId)) {
-        installed.push(response.data.packageId);
-        localStorage.setItem(storageKey, JSON.stringify(installed));
-      }
-
-      message.success(`包 ${pkg.name} 已就绪，可在部署页面启动`);
-    } catch {
-      // Error handled by global http interceptor
+  const handleInstalled = (packageId: string): void => {
+    const storageKey = 'mcp_installed_packages';
+    const raw = localStorage.getItem(storageKey);
+    const installed = raw ? (JSON.parse(raw) as string[]) : [];
+    if (!installed.includes(packageId)) {
+      installed.push(packageId);
+      localStorage.setItem(storageKey, JSON.stringify(installed));
     }
   };
 
