@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmdirSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { Writable } from 'node:stream';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import type { Package } from '@sga/shared';
@@ -47,35 +48,26 @@ function slugify(value: string): string {
 }
 
 async function createTarball(dir: string): Promise<Buffer> {
-  type ArchiverInstance = {
-    on(event: 'error', listener: (error: Error) => void): ArchiverInstance;
-    pipe(stream: Writable): void;
-    directory(src: string, dest: string | false): ArchiverInstance;
-    finalize(): Promise<void>;
-  };
-  type ArchiverFactory = (format: 'tar', options: { gzip: true }) => ArchiverInstance;
-
-  // Lazy-load to avoid module-resolution failures during non-publish command execution.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const archiver = require('archiver') as ArchiverFactory;
-
-  return new Promise<Buffer>((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    const writable = new Writable({
-      write(chunk: unknown, _encoding, cb) {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-        cb();
-      }
-    });
-
-    const archive = archiver('tar', { gzip: true });
-    archive.on('error', reject);
-    writable.on('finish', () => resolve(Buffer.concat(chunks)));
-
-    archive.pipe(writable);
-    archive.directory(dir, false);
-    archive.finalize().catch(reject);
-  });
+  const tmpDir = mkdtempSync(path.join(tmpdir(), 'mcp-publish-'));
+  const tarPath = path.join(tmpDir, 'package.tgz');
+  try {
+    execSync(
+      `tar czf "${tarPath}" --exclude=node_modules --exclude=dist --exclude=.git -C "${dir}" .`,
+      { windowsHide: true, timeout: 30000 }
+    );
+    return readFileSync(tarPath);
+  } finally {
+    try {
+      unlinkSync(tarPath);
+    } catch {
+      /* cleanup */
+    }
+    try {
+      rmdirSync(tmpDir);
+    } catch {
+      /* cleanup */
+    }
+  }
 }
 
 function readManifest(cwd: string = process.cwd()): PublishManifest {
