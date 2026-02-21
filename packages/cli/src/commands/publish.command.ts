@@ -170,16 +170,13 @@ export async function publishCommand(
     new Blob([new Uint8Array(tarball)], { type: 'application/gzip' }),
     `${packageId}.tgz`
   );
-  form.append(
-    'metadata',
-    JSON.stringify({
-      packageId,
-      manifest: packageObj,
-      autoDeploy: false
-    })
-  );
+  form.append('name', payload.name);
+  form.append('version', payload.version);
+  form.append('description', payload.description || '');
+  form.append('category', payload.category);
+  form.append('toolsCount', String(payload.toolsCount ?? 0));
 
-  const response = await fetch(`${marketUrl}/api/sync/push`, {
+  const response = await fetch(`${marketUrl}/api/packages/publish`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`
