@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 describe('cli package contract', () => {
-  it('includes runtime and test dependencies', () => {
+  it('includes bundled and test dependencies', () => {
     const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8')) as {
       scripts: Record<string, string>;
       dependencies: Record<string, string>;
@@ -11,12 +11,13 @@ describe('cli package contract', () => {
     };
 
     expect(pkg.scripts.test).toBe('jest');
-    expect(pkg.dependencies['@sga/core']).toBeDefined();
-    expect(pkg.dependencies.commander).toBeDefined();
-    expect(pkg.dependencies.chalk).toBeDefined();
-    expect(pkg.dependencies.ora).toBeDefined();
-    expect(pkg.dependencies.zod).toBeDefined();
-    expect(pkg.dependencies.execa).toBeDefined();
+    // All deps are in devDependencies (ncc bundles everything into dist/bundle.js)
+    expect(pkg.devDependencies['@sga/core']).toBeDefined();
+    expect(pkg.devDependencies.commander).toBeDefined();
+    expect(pkg.devDependencies.chalk).toBeDefined();
+    expect(pkg.devDependencies.ora).toBeDefined();
+    expect(pkg.devDependencies.zod).toBeDefined();
+    expect(pkg.devDependencies.execa).toBeDefined();
     expect(pkg.bin?.['mcp-claw']).toBeDefined();
     expect(pkg.devDependencies.jest).toBeDefined();
     expect(pkg.devDependencies['ts-jest']).toBeDefined();

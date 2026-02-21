@@ -95,8 +95,7 @@ export async function publishCommand(
 ): Promise<void> {
   const token = getToken();
   if (!token) {
-    console.error(chalk.red('Not logged in. Run `mcp-claw login` first.'));
-    process.exit(1);
+    throw new Error('Not logged in. Run `mcp-claw login` first.');
   }
 
   const marketUrl = normalizeBaseUrl(getMarketUrl());

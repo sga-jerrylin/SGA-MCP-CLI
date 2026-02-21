@@ -8,6 +8,7 @@ import { OpenRouterProvider } from '../llm/llm-client';
 
 const MODEL_IDS = [
   'anthropic/claude-opus-4.6',
+  'anthropic/claude-sonnet-4.6',
   'anthropic/claude-sonnet-4.5',
   'anthropic/claude-haiku-4.5',
   'openai/gpt-5.2-codex',
@@ -201,9 +202,29 @@ export function setConfig(
 
   writeEnvState(state);
   logger.log(chalk.green(`Updated ${updates.length} setting(s) in ${envPath}`));
+
+  // Also persist to ~/.sga/config.yaml so global `mcp-claw` works without .env
+  const globalConfig = new SgaConfig();
+  if (typeof options.key === 'string') {
+    globalConfig.set('openrouter.apiKey', options.key);
+  }
+  if (typeof options.parser === 'string') {
+    globalConfig.set('model.parser', options.parser);
+  }
+  if (typeof options.coder === 'string') {
+    globalConfig.set('model.coder', options.coder);
+  }
+  if (typeof options.agent === 'string') {
+    globalConfig.set('model.agent', options.agent);
+  }
+  logger.log(chalk.green(`Synced to ${DEFAULT_CONFIG_PATH}`));
 }
 
-export function setSgaConfig(key: string, value: string | number | boolean, logger: Logger = console): void {
+export function setSgaConfig(
+  key: string,
+  value: string | number | boolean,
+  logger: Logger = console
+): void {
   const config = new SgaConfig();
   config.set(key, value);
   logger.log(chalk.green(`Updated ${key} in ${DEFAULT_CONFIG_PATH}`));
@@ -237,11 +258,16 @@ export async function testConfig(logger: Logger = console, cwd = process.cwd()):
 }
 
 export function registerConfigCommand(program: Command): void {
-  const config = program.command('config').description('Show and update LLM/OpenRouter configuration');
+  const config = program
+    .command('config')
+    .description('Show and update LLM/OpenRouter configuration');
 
-  config.command('show').description('Show settings from .env and ~/.sga/config.yaml').action(() => {
-    showConfig(console);
-  });
+  config
+    .command('show')
+    .description('Show settings from .env and ~/.sga/config.yaml')
+    .action(() => {
+      showConfig(console);
+    });
 
   config
     .command('set <key> <value>')
@@ -261,7 +287,10 @@ export function registerConfigCommand(program: Command): void {
       setConfig(options, console);
     });
 
-  config.command('test').description('Test OpenRouter connectivity').action(async () => {
-    await testConfig(console);
-  });
+  config
+    .command('test')
+    .description('Test OpenRouter connectivity')
+    .action(async () => {
+      await testConfig(console);
+    });
 }

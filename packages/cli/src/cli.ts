@@ -6,6 +6,7 @@ import { loadChatConfig } from './chat/chat-config';
 import { startChatLoop } from './chat/chat-loop';
 import { registerConfigCommand } from './commands/config.command';
 import { generateCommand } from './commands/generate.command';
+import { registerInstallCommand } from './commands/install.command';
 import { registerLoginCommand } from './commands/login.command';
 import { registerLogoutCommand } from './commands/logout.command';
 import { registerMemoryCommand } from './commands/memory.command';
@@ -45,6 +46,7 @@ export function createCli(): Command {
   registerLogoutCommand(program);
   registerMemoryCommand(program);
   registerPublishCommand(program);
+  registerInstallCommand(program);
 
   program.action(async () => {
     const config = loadChatConfig();
@@ -66,4 +68,3 @@ if (require.main === module) {
     process.exitCode = 1;
   });
 }
-

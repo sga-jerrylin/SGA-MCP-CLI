@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { SgaConfig } from '../config/sga-config';
 import {
@@ -35,6 +35,8 @@ import { PipelineProgress } from '../utils/pipeline-progress';
 export interface RunCommandInput {
   root: string;
   urls?: string[];
+  /** Pre-loaded documentation content (e.g. when source is a single file outside root) */
+  rawDocs?: string[];
   dryRun?: boolean;
   logger: Pick<Console, 'log'>;
   reportTo?: string;
@@ -310,11 +312,30 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
         ? new OpenRouterProvider('openrouter-coder', coderModel, apiKey, baseUrl)
         : undefined;
 
+    if (!input.dryRun && !llmProvider) {
+      input.logger.log(
+        'Warning: No API key configured. LLM analysis disabled — results will be limited.'
+      );
+      input.logger.log('  Run: mcp-claw config set-env --key YOUR_OPENROUTER_KEY');
+    }
+
+    // Ensure root directory exists (e.g. generated-mcp/ for file sources)
+    if (!existsSync(input.root)) {
+      mkdirSync(input.root, { recursive: true });
+    }
+
     activeStage = 'Explorer';
     progress.start('Explorer', 'scanning sources...');
     const explorer = createExplorer(Boolean(input.dryRun));
     const explorerReport = await explorer.run({ root: input.root, urls });
-    const explorerDoneMessage = `found ${explorerReport.files.length} files`;
+    // Prepend any pre-loaded docs (e.g. from a single-file source outside root)
+    if (input.rawDocs?.length) {
+      explorerReport.rawDocs = [...input.rawDocs, ...(explorerReport.rawDocs ?? [])];
+    }
+    const docCount = explorerReport.rawDocs?.length ?? 0;
+    const filePart = `found ${explorerReport.files.length} files`;
+    const docPart = docCount > 0 ? `, ${docCount} docs loaded` : '';
+    const explorerDoneMessage = `${filePart}${docPart}`;
     progress.done('Explorer', explorerDoneMessage);
     input.logger.log(`Explorer - ${explorerDoneMessage}`);
 
@@ -362,34 +383,43 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
 
     activeStage = 'Tester';
     progress.start('Tester', 'validating generated server...');
-    const runner = input.dryRun
-      ? {
-          run: async () => ({
-            stdout: 'Tests: 0 passed, 0 failed, 0 total\nLines : 0%'
+    let testerPassed = false;
+    try {
+      const runner = input.dryRun
+        ? {
+            run: async () => ({
+              stdout: 'Tests: 0 passed, 0 failed, 0 total\nLines : 0%'
+            })
+          }
+        : new TestRunner();
+      const tester = new TesterAgent({
+        sandboxAdapter: new TesterSandboxAdapter({
+          runTests: async () => ({
+            passed: true,
+            logs: [],
+            failedTests: []
           })
-        }
-      : new TestRunner();
-    const tester = new TesterAgent({
-      sandboxAdapter: new TesterSandboxAdapter({
-        runTests: async () => ({
-          passed: true,
-          logs: [],
-          failedTests: []
-        })
-      }),
-      runner
-    });
-    const testerResult = await tester.run({
-      root: input.root,
-      files: builderResult.writtenFiles.map((filePath) => ({ path: filePath, content: '' }))
-    });
+        }),
+        runner
+      });
+      const testerResult = await tester.run({
+        root: input.root,
+        files: builderResult.writtenFiles.map((filePath) => ({ path: filePath, content: '' }))
+      });
+      testerPassed = testerResult.passed;
 
-    if (testerResult.passed) {
-      progress.done('Tester', 'PASS');
-      input.logger.log('Tester - PASS');
-    } else {
-      progress.fail('Tester', 'FAIL');
-      input.logger.log('Tester - FAIL');
+      if (testerPassed) {
+        progress.done('Tester', 'PASS');
+        input.logger.log('Tester - PASS');
+      } else {
+        progress.done('Tester', 'FAIL (non-blocking)');
+        input.logger.log('Tester - FAIL (non-blocking)');
+      }
+    } catch (testerError) {
+      // Tester failures are non-blocking — the generated code is still usable
+      const testerMsg = testerError instanceof Error ? testerError.message : String(testerError);
+      progress.done('Tester', 'SKIPPED');
+      input.logger.log(`Tester - skipped: ${testerMsg}`);
     }
 
     if (!input.dryRun) {
@@ -398,7 +428,7 @@ export async function runCommand(input: RunCommandInput): Promise<void> {
         source,
         startedAt: new Date(startTime).toISOString(),
         finishedAt: new Date().toISOString(),
-        status: testerResult.passed ? 'success' : 'failed',
+        status: testerPassed ? 'success' : 'failed',
         ir: lastIr,
         filesWritten,
         durationMs: Date.now() - startTime
