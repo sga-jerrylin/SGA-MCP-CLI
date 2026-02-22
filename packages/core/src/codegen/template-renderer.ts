@@ -351,7 +351,20 @@ function renderManifest(ir: IR): string {
     toolsCount: ir.tools.length,
     tools: ir.tools.map((tool) => ({
       name: tool.name,
-      description: tool.description
+      description: tool.description,
+      inputSchema: {
+        type: 'object',
+        properties: Object.fromEntries(
+          tool.params.map((param) => [
+            param.name,
+            {
+              type: param.type === 'integer' || param.type === 'number' ? param.type : 'string',
+              ...(param.description ? { description: param.description } : {})
+            }
+          ])
+        ),
+        required: tool.params.filter((param) => param.required).map((param) => param.name)
+      }
     })),
     transport: 'stdio'
   };

@@ -220,6 +220,11 @@ export interface Package {
   description?: string;
   category: string;
   toolCount: number;
+  tools?: Array<{
+    name: string;
+    description?: string;
+    inputSchema?: Record<string, unknown>;
+  }>;
   serverCount: number;
   sha256: string;
   signature?: string;
@@ -338,6 +343,8 @@ export interface HourlyCount {
 export interface DashboardSummary {
   topTools: ToolCallStat[];
   totalCallsLast24h: number;
+  successRate: number;
+  avgLatencyMs: number;
   hourlyTrend: HourlyCount[];
   activeServers: number;
   totalPackages: number;

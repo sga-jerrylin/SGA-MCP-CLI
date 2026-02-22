@@ -18,12 +18,19 @@ interface ManifestCredential {
   defaultValue?: string;
 }
 
+interface ManifestTool {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+}
+
 interface PublishManifest {
   name?: string;
   version?: string;
   category?: string;
   description?: string;
   toolsCount?: number;
+  tools?: ManifestTool[];
   credentials?: ManifestCredential[];
 }
 
@@ -93,12 +100,34 @@ function readManifest(cwd: string = process.cwd()): PublishManifest {
   }
 
   const candidate = parsed as Partial<PublishManifest>;
+  const tools = Array.isArray(candidate.tools)
+    ? candidate.tools
+        .map((tool) => {
+          if (!tool || typeof tool !== 'object') {
+            return null;
+          }
+          const item = tool as Partial<ManifestTool>;
+          if (typeof item.name !== 'string' || item.name.trim().length === 0) {
+            return null;
+          }
+          return {
+            name: item.name,
+            ...(typeof item.description === 'string' ? { description: item.description } : {}),
+            ...(item.inputSchema && typeof item.inputSchema === 'object'
+              ? { inputSchema: item.inputSchema }
+              : {})
+          } as ManifestTool;
+        })
+        .filter((tool): tool is ManifestTool => tool !== null)
+    : undefined;
+
   return {
     name: typeof candidate.name === 'string' ? candidate.name : undefined,
     version: typeof candidate.version === 'string' ? candidate.version : undefined,
     category: typeof candidate.category === 'string' ? candidate.category : undefined,
     description: typeof candidate.description === 'string' ? candidate.description : undefined,
     toolsCount: typeof candidate.toolsCount === 'number' ? candidate.toolsCount : undefined,
+    tools,
     credentials: Array.isArray(candidate.credentials)
       ? (candidate.credentials as ManifestCredential[])
       : undefined
@@ -114,6 +143,7 @@ function resolvePublishPayload(
   category: string;
   description: string;
   toolsCount?: number;
+  tools?: ManifestTool[];
   credentials?: ManifestCredential[];
 } {
   const name = options.name ?? manifest.name;
@@ -131,6 +161,7 @@ function resolvePublishPayload(
     category,
     description,
     toolsCount: manifest.toolsCount,
+    tools: manifest.tools,
     credentials: manifest.credentials
   };
 }
@@ -223,6 +254,7 @@ async function autoEnhanceManifest(
     category: string;
     description: string;
     toolsCount?: number;
+    tools?: ManifestTool[];
     credentials?: ManifestCredential[];
   }
 ): Promise<Partial<Pick<typeof payload, 'description' | 'category' | 'toolsCount'>>> {
@@ -362,6 +394,7 @@ export async function publishCommand(
     description: payload.description || '',
     category: payload.category,
     toolCount: payload.toolsCount ?? 0,
+    ...(payload.tools ? { tools: payload.tools } : {}),
     serverCount: 1,
     sha256,
     signed: false,
