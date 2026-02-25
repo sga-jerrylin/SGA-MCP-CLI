@@ -134,6 +134,7 @@ function renderPackageJson(ir: IR): string {
     name: `${toPackageName(ir.system.code)}-mcp-server`,
     version: '1.0.0',
     description: `MCP server for ${ir.system.code}`,
+    packageManager: 'pnpm@9.0.0',
     type: 'module',
     main: 'dist/index.js',
     scripts: {
@@ -141,7 +142,7 @@ function renderPackageJson(ir: IR): string {
       start: 'node dist/index.js'
     },
     dependencies: {
-      '@modelcontextprotocol/sdk': '^1.0.0',
+      '@modelcontextprotocol/sdk': '1.10.2',
       axios: '^1.6.0',
       zod: '^3.22.0'
     },
@@ -152,6 +153,10 @@ function renderPackageJson(ir: IR): string {
   };
 
   return `${JSON.stringify(pkg, null, 2)}\n`;
+}
+
+function renderNpmrc(): string {
+  return 'legacy-peer-deps=true\n';
 }
 
 function renderTsConfig(): string {
@@ -375,6 +380,7 @@ function renderManifest(ir: IR): string {
 export function renderFromIR(ir: IR): GeneratedFile[] {
   return [
     { path: 'package.json', content: renderPackageJson(ir) },
+    { path: '.npmrc', content: renderNpmrc() },
     { path: 'tsconfig.json', content: renderTsConfig() },
     {
       path: 'src/index.ts',
