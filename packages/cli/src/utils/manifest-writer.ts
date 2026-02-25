@@ -39,20 +39,30 @@ function toUpperSnake(code: string): string {
 }
 
 function buildCredentials(ir: IR): ManifestCredential[] {
-  if (ir.system.authType === 'none') {
-    return [];
-  }
-
   const service = toUpperSnake(ir.system.code);
-  return [
-    {
+  const creds: ManifestCredential[] = [];
+
+  // Always declare base URL
+  creds.push({
+    key: `${service}_BASE_URL`,
+    label: '服务地址',
+    type: 'string',
+    required: true,
+    description: `${ir.system.code} 的 API 基础地址`
+  });
+
+  // Add API Key when auth is required
+  if (ir.system.authType !== 'none') {
+    creds.push({
       key: `${service}_API_KEY`,
       label: 'API Key',
       type: 'secret',
       required: true,
       description: `API key for ${ir.system.code}`
-    }
-  ];
+    });
+  }
+
+  return creds;
 }
 
 function buildManifest(ir: IR): Manifest {
