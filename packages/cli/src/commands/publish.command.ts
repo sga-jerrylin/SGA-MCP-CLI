@@ -418,7 +418,7 @@ export async function publishCommand(
     })
   );
 
-  const response = await fetch(`${marketUrl}/api/packages/sync/push`, {
+  const response = await fetch(`${marketUrl}/packages/sync/push`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`
