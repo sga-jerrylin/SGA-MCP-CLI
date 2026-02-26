@@ -190,7 +190,7 @@ function renderHttpClient(ir: IR): string {
     'import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";',
     '',
     'const client: AxiosInstance = axios.create({',
-    `  baseURL: ${JSON.stringify(ir.system.baseUrl)},`,
+    `  baseURL: process.env.BASE_URL ?? ${JSON.stringify(ir.system.baseUrl)},`,
     '  timeout: 30000,',
     '  headers: { "Content-Type": "application/json" },',
     '});',
@@ -349,10 +349,45 @@ function renderServer(ir: IR): string {
 }
 
 function renderManifest(ir: IR): string {
+  const credentials: Array<{
+    key: string;
+    label: string;
+    type: 'string';
+    required: boolean;
+    description: string;
+  }> = [
+    {
+      key: 'BASE_URL',
+      label: 'API 服务地址',
+      type: 'string',
+      required: true,
+      description: '服务的 API 基础地址，如 http://your-server:3000'
+    }
+  ];
+
+  if (ir.system.authType === 'bearer') {
+    credentials.push({
+      key: 'API_TOKEN',
+      label: 'API 访问令牌',
+      type: 'string',
+      required: true,
+      description: 'Bearer Token（Authorization: Bearer <token>）'
+    });
+  } else if (ir.system.authType === 'api-key') {
+    credentials.push({
+      key: 'API_KEY',
+      label: 'API Key',
+      type: 'string',
+      required: true,
+      description: '请求头 X-API-Key 对应的密钥'
+    });
+  }
+
   const manifest = {
     name: `${toPackageName(ir.system.code)}-mcp-server`,
     version: '1.0.0',
     description: `MCP server for ${ir.system.code} API`,
+    credentials,
     toolsCount: ir.tools.length,
     tools: ir.tools.map((tool) => ({
       name: tool.name,

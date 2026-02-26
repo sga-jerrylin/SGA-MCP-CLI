@@ -1,4 +1,4 @@
-import type { AuthType, IR, IrTool } from '@sga/core';
+import type { AuthType, IR, IrParam, IrTool } from '@sga/core';
 
 import type { LlmProvider } from '../../llm/llm-client';
 
@@ -46,6 +46,24 @@ function toSnakeCase(name: string): string {
   return normalized || 'generated_tool';
 }
 
+function normalizeParams(rawParams: unknown): IrParam[] {
+  if (!Array.isArray(rawParams)) {
+    return [];
+  }
+
+  return rawParams
+    .filter(
+      (param): param is Record<string, unknown> => Boolean(param) && typeof param === 'object'
+    )
+    .map((param) => ({
+      name: typeof param.name === 'string' ? param.name : '',
+      type: typeof param.type === 'string' ? param.type : 'string',
+      required: param.required === true,
+      description: typeof param.description === 'string' ? param.description : undefined
+    }))
+    .filter((param) => param.name.length > 0);
+}
+
 function normalizeTools(tools: unknown): IrTool[] {
   if (!Array.isArray(tools)) {
     return [];
@@ -63,6 +81,7 @@ function normalizeTools(tools: unknown): IrTool[] {
     const path =
       typeof candidate.path === 'string' && candidate.path.startsWith('/') ? candidate.path : '/';
     const name = toSnakeCase(typeof candidate.name === 'string' ? candidate.name : path);
+    const params = normalizeParams(candidate.params);
 
     normalized.push({
       name,
@@ -72,7 +91,7 @@ function normalizeTools(tools: unknown): IrTool[] {
           : `${method} ${path}`,
       method,
       path,
-      params: [],
+      params,
       needsConfirmation: false,
       isAsync: false
     });
@@ -132,7 +151,14 @@ export class LlmIrGenerator {
       '      "description": "string",',
       '      "method": "GET|POST|PUT|DELETE",',
       '      "path": "/path",',
-      '      "params": [],',
+      '      "params": [',
+      '        {',
+      '          "name": "query",',
+      '          "type": "string",',
+      '          "required": true,',
+      '          "description": "Search query text"',
+      '        }',
+      '      ],',
       '      "needsConfirmation": false,',
       '      "isAsync": false',
       '    }',
