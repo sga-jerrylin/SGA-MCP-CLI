@@ -3,10 +3,19 @@ jest.mock('../commands/generate.command', () => ({
   isUrl: (value: string) => /^https?:\/\//i.test(value)
 }));
 
+jest.mock('../commands/publish.command', () => ({
+  publishCommand: jest.fn().mockResolvedValue({
+    name: 'mcp-server-demo',
+    version: '1.0.0',
+    marketUrl: 'http://localhost:5100'
+  })
+}));
+
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { publishCommand } from '../commands/publish.command';
 import type { ChatConfig } from './chat-types';
 import { ChatSession } from './chat-session';
 
@@ -202,6 +211,50 @@ describe('ChatSession', () => {
     expect(publishMcp).toHaveBeenCalledWith({});
     const output = writtenText(write);
     expect(output).toContain('publish_mcp');
+  });
+
+  it('blocks publish_mcp when strict integration gate is not satisfied', async () => {
+    const workDir = mkdtempSync(join(tmpdir(), 'chat-session-publish-block-'));
+    const session = new ChatSession({ ...config, workDir });
+
+    try {
+      const resultJson = await (
+        session as unknown as { publishMcp: (args: Record<string, unknown>) => Promise<string> }
+      ).publishMcp({
+        dir: workDir
+      });
+      const result = JSON.parse(resultJson) as { error?: string };
+      expect(result.error).toContain('Publish blocked');
+      expect(publishCommand).not.toHaveBeenCalled();
+    } finally {
+      rmSync(workDir, { recursive: true, force: true });
+    }
+  });
+
+  it('allows publish_mcp only after all tools passed in integration test', async () => {
+    const workDir = mkdtempSync(join(tmpdir(), 'chat-session-publish-pass-'));
+    const session = new ChatSession({ ...config, workDir });
+
+    (session as unknown as { lastIntegrationDir?: string }).lastIntegrationDir = workDir;
+    (
+      session as unknown as {
+        lastIntegrationSummary?: { passed?: boolean; allToolsPassed?: boolean };
+      }
+    ).lastIntegrationSummary = { passed: true, allToolsPassed: true };
+
+    try {
+      const resultJson = await (
+        session as unknown as { publishMcp: (args: Record<string, unknown>) => Promise<string> }
+      ).publishMcp({
+        dir: workDir
+      });
+      const result = JSON.parse(resultJson) as { status?: string; packageUrl?: string };
+      expect(result.status).toBe('ok');
+      expect(result.packageUrl).toContain('/repository');
+      expect(publishCommand).toHaveBeenCalledWith({}, workDir);
+    } finally {
+      rmSync(workDir, { recursive: true, force: true });
+    }
   });
 
   it('rolls back history on LLM error', async () => {
