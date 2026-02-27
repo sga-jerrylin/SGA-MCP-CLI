@@ -44,6 +44,7 @@ interface PublishOptions {
 }
 
 type ManifestSchemaVersion = 'v2' | 'legacy';
+const SKIP_VARS = new Set(['NODE_ENV', 'PORT', 'HTTP_TIMEOUT_MS', 'DEBUG', 'LOG_LEVEL']);
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, '');
@@ -142,6 +143,90 @@ function hasInputSchema(tool: ManifestTool): boolean {
     return false;
   }
   return Object.keys(tool.inputSchema).length > 0;
+}
+
+function scanSourceEnvVars(cwd: string): string[] {
+  const envVarPattern = /process\.env\.([A-Z][A-Z0-9_]*)/g;
+  const discovered = new Set<string>();
+  const stack = [cwd];
+  const sourceExtensions = new Set(['.ts', '.js']);
+  const skippedDirs = new Set(['node_modules', 'dist']);
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) {
+      continue;
+    }
+
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (skippedDirs.has(entry.name)) {
+          continue;
+        }
+        stack.push(fullPath);
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const ext = path.extname(entry.name).toLowerCase();
+      if (!sourceExtensions.has(ext)) {
+        continue;
+      }
+
+      try {
+        const content = readFileSync(fullPath, 'utf8');
+        for (const match of content.matchAll(envVarPattern)) {
+          const varName = match[1];
+          if (varName && !SKIP_VARS.has(varName)) {
+            discovered.add(varName);
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  return Array.from(discovered);
+}
+
+function mergeDiscoveredCredentials(
+  credentials: ManifestCredential[] | undefined,
+  discoveredEnvVars: string[]
+): ManifestCredential[] | undefined {
+  const merged = Array.isArray(credentials) ? [...credentials] : [];
+  const existingKeys = new Set(merged.map((item) => item.key));
+
+  for (const varName of discoveredEnvVars) {
+    if (SKIP_VARS.has(varName) || existingKeys.has(varName)) {
+      continue;
+    }
+
+    console.warn(
+      chalk.yellow(`[credentials] 发现未声明的 env var: ${varName}，已自动补入 manifest`)
+    );
+    merged.push({
+      key: varName,
+      label: varName,
+      type: 'string',
+      required: true,
+      description: `配置 ${varName} 环境变量`
+    });
+    existingKeys.add(varName);
+  }
+
+  return merged.length > 0 ? merged : undefined;
 }
 
 function mergeTools(
@@ -253,6 +338,9 @@ async function resolvePublishPayload(
     }
   }
 
+  const discoveredEnvVars = scanSourceEnvVars(cwd);
+  const credentials = mergeDiscoveredCredentials(manifest.credentials, discoveredEnvVars);
+
   return {
     name,
     version,
@@ -260,7 +348,7 @@ async function resolvePublishPayload(
     description,
     toolsCount: manifest.toolsCount,
     tools,
-    credentials: manifest.credentials,
+    credentials,
     manifestSchemaVersion
   };
 }

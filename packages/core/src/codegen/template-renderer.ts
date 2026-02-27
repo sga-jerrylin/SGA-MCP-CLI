@@ -1,8 +1,9 @@
-import type { IR, IrParam, IrTool } from '../ir/ir';
+﻿import type { IR, IrParam, IrTool } from '../ir/ir';
 
 import type { GeneratedFile } from './codegen.service';
 
 const INDENT_8 = '        ';
+const SKIP_VARS = new Set(['NODE_ENV', 'PORT', 'HTTP_TIMEOUT_MS', 'DEBUG', 'LOG_LEVEL']);
 
 function toPackageName(code: string): string {
   const normalized = code
@@ -354,7 +355,7 @@ function renderServer(ir: IR): string {
   return lines.join('\n');
 }
 
-function renderManifest(ir: IR): string {
+function renderManifest(ir: IR, discoveredEnvVars: string[]): string {
   const credentials: Array<{
     key: string;
     label: string;
@@ -389,6 +390,22 @@ function renderManifest(ir: IR): string {
     });
   }
 
+  const declaredKeys = new Set(credentials.map((item) => item.key));
+  for (const varName of discoveredEnvVars) {
+    if (SKIP_VARS.has(varName) || declaredKeys.has(varName)) {
+      continue;
+    }
+
+    credentials.push({
+      key: varName,
+      label: varName,
+      type: 'string',
+      required: true,
+      description: `配置 ${varName} 环境变量`
+    });
+    declaredKeys.add(varName);
+  }
+
   const manifest = {
     name: `${toPackageName(ir.system.code)}-mcp-server`,
     version: '1.0.0',
@@ -417,9 +434,8 @@ function renderManifest(ir: IR): string {
 
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
-
 export function renderFromIR(ir: IR): GeneratedFile[] {
-  return [
+  const generatedFiles: GeneratedFile[] = [
     { path: 'package.json', content: renderPackageJson(ir) },
     { path: '.npmrc', content: renderNpmrc() },
     { path: 'tsconfig.json', content: renderTsConfig() },
@@ -428,7 +444,27 @@ export function renderFromIR(ir: IR): GeneratedFile[] {
       content: 'import { startServer } from "./server.js";\n\nstartServer().catch(console.error);\n'
     },
     { path: 'src/http-client.ts', content: renderHttpClient(ir) },
-    { path: 'src/server.ts', content: renderServer(ir) },
-    { path: 'manifest.json', content: renderManifest(ir) }
+    { path: 'src/server.ts', content: renderServer(ir) }
   ];
+
+  const envVarPattern = /process\.env\.([A-Z][A-Z0-9_]*)/g;
+  const discoveredEnvVars = new Set<string>();
+  const tsContent = generatedFiles
+    .filter((file) => file.path.endsWith('.ts'))
+    .map((file) => file.content)
+    .join('\n');
+
+  for (const match of tsContent.matchAll(envVarPattern)) {
+    const varName = match[1];
+    if (varName && !SKIP_VARS.has(varName)) {
+      discoveredEnvVars.add(varName);
+    }
+  }
+
+  generatedFiles.push({
+    path: 'manifest.json',
+    content: renderManifest(ir, Array.from(discoveredEnvVars))
+  });
+
+  return generatedFiles;
 }
