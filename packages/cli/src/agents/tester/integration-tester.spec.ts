@@ -282,21 +282,26 @@ describe('IntegrationTester', () => {
     expect(kill).toHaveBeenCalledTimes(1);
   });
 
-  it('retries initialize with legacy newline frame when first framed request times out', async () => {
+  it('retries initialize using the configured protocol mode', async () => {
     const mockExec = jest.fn().mockResolvedValue({ stdout: 'ok' });
     const writes: Buffer[] = [];
     const stdout = new EventEmitter();
     const stderr = new EventEmitter();
     const kill = jest.fn();
 
+    let initAttempt = 0;
     const stdin = {
       write: jest.fn((chunk: Buffer) => {
         writes.push(Buffer.from(chunk));
         const payload = chunk.toString('utf8');
 
         const isInit = payload.includes('"id":1') && payload.includes('"method":"initialize"');
-        const isLegacyFrame = !payload.toLowerCase().includes('content-length:');
-        if (isInit && isLegacyFrame) {
+        const isFramed = payload.toLowerCase().includes('content-length:');
+        if (isInit && isFramed) {
+          initAttempt += 1;
+          if (initAttempt < 2) {
+            return true;
+          }
           stdout.emit(
             'data',
             frame({
@@ -362,6 +367,7 @@ describe('IntegrationTester', () => {
     const tester = new IntegrationTester({
       exec: mockExec,
       spawn: mockSpawn as never,
+      protocolMode: 'framed',
       startupWaitMs: 0,
       initializeTimeoutMs: 3200,
       pollIntervalMs: 5
@@ -377,7 +383,7 @@ describe('IntegrationTester', () => {
     const initWrites = writes.filter((chunk) => chunk.toString('utf8').includes('"id":1'));
     expect(initWrites.length).toBeGreaterThanOrEqual(2);
     expect(
-      initWrites.some((chunk) => !chunk.toString('utf8').toLowerCase().includes('content-length:'))
+      initWrites.every((chunk) => chunk.toString('utf8').toLowerCase().includes('content-length:'))
     ).toBe(true);
   });
 
@@ -579,6 +585,7 @@ describe('IntegrationTester', () => {
       const mockExec = jest.fn().mockResolvedValue({ stdout: 'ok' });
       const tester = new IntegrationTester({
         exec: mockExec,
+        protocolMode: 'framed',
         startupWaitMs: 300,
         initializeTimeoutMs: 5000,
         toolsListTimeoutMs: 3000,

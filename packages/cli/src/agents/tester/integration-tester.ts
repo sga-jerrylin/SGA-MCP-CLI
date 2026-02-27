@@ -1,4 +1,6 @@
 ﻿import { exec, spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
@@ -43,6 +45,7 @@ export interface IntegrationTestReport {
 export interface IntegrationTesterDeps {
   exec?: (command: string, options?: object) => Promise<{ stdout: string }>;
   spawn?: typeof nodeSpawn;
+  protocolMode?: 'legacy' | 'framed';
   startupWaitMs?: number;
   initializeTimeoutMs?: number;
   toolsListTimeoutMs?: number;
@@ -52,6 +55,7 @@ export interface IntegrationTesterDeps {
 }
 
 export type JsonRpcMessage = Record<string, unknown>;
+type ProtocolMode = 'legacy' | 'framed';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -324,6 +328,7 @@ export function parseMcpMessages(data: Buffer<ArrayBufferLike>): {
 export class IntegrationTester {
   private readonly exec: (command: string, options?: object) => Promise<{ stdout: string }>;
   private readonly spawn: typeof nodeSpawn;
+  private readonly protocolMode: ProtocolMode | undefined;
   private readonly startupWaitMs: number;
   private readonly initializeTimeoutMs: number;
   private readonly toolsListTimeoutMs: number;
@@ -335,6 +340,7 @@ export class IntegrationTester {
     this.exec =
       deps.exec ?? ((command, options) => execAsync(command, { windowsHide: true, ...options }));
     this.spawn = deps.spawn ?? nodeSpawn;
+    this.protocolMode = deps.protocolMode;
     this.startupWaitMs = deps.startupWaitMs ?? DEFAULT_STARTUP_WAIT_MS;
     this.initializeTimeoutMs = deps.initializeTimeoutMs ?? DEFAULT_INITIALIZE_TIMEOUT_MS;
     this.toolsListTimeoutMs = deps.toolsListTimeoutMs ?? DEFAULT_TOOLS_LIST_TIMEOUT_MS;
@@ -365,6 +371,7 @@ export class IntegrationTester {
     let spawnError: string | null = null;
 
     try {
+      const messageMode = this.detectProtocolMode(input.dir);
       const env = {
         ...process.env,
         ...input.authEnv,
@@ -433,10 +440,7 @@ export class IntegrationTester {
         await sleep(this.startupWaitMs);
       }
 
-      const writeMessage = (
-        message: JsonRpcMessage,
-        mode: 'framed' | 'legacy' = 'framed'
-      ): void => {
+      const writeMessage = (message: JsonRpcMessage, mode: ProtocolMode = messageMode): void => {
         if (!serverProcess?.stdin) {
           throw new Error('Server stdin is not available');
         }
@@ -457,7 +461,11 @@ export class IntegrationTester {
       ): Promise<JsonRpcMessage> => {
         const start = Date.now();
         while (Date.now() - start < timeoutMs) {
-          const idx = messageQueue.findIndex((message) => message.id === id);
+          const idx = messageQueue.findIndex(
+            (message) =>
+              Object.prototype.hasOwnProperty.call(message, 'id') &&
+              String((message as { id?: unknown }).id) === String(id)
+          );
           if (idx >= 0) {
             const [found] = messageQueue.splice(idx, 1);
             return found;
@@ -502,8 +510,7 @@ export class IntegrationTester {
         if (!timeoutOnFirstTry || serverExited || spawnError || secondInitializeTimeoutMs === 0) {
           throw error;
         }
-        // Compatibility fallback for old line-delimited stdio servers.
-        writeMessage(initializeMessage, 'legacy');
+        writeMessage(initializeMessage, messageMode);
         await waitForResponseById(1, secondInitializeTimeoutMs);
       }
 
@@ -674,5 +681,35 @@ export class IntegrationTester {
     } finally {
       serverProcess?.kill();
     }
+  }
+  private detectProtocolMode(dir: string): ProtocolMode {
+    if (this.protocolMode) {
+      return this.protocolMode;
+    }
+
+    try {
+      const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {
+        dependencies?: Record<string, unknown>;
+        devDependencies?: Record<string, unknown>;
+      };
+      const sdkVersionRaw =
+        (pkg.dependencies?.['@modelcontextprotocol/sdk'] as string | undefined) ??
+        (pkg.devDependencies?.['@modelcontextprotocol/sdk'] as string | undefined);
+      if (typeof sdkVersionRaw === 'string') {
+        const version = sdkVersionRaw.replace(/^[^\d]*/, '');
+        const match = /^(\d+)\.(\d+)/.exec(version);
+        if (match) {
+          const major = Number(match[1]);
+          const minor = Number(match[2]);
+          if (Number.isFinite(major) && Number.isFinite(minor) && major === 1 && minor <= 10) {
+            return 'legacy';
+          }
+        }
+      }
+    } catch {
+      // ignore and use default
+    }
+
+    return 'legacy';
   }
 }
