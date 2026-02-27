@@ -7,9 +7,9 @@ const execAsync = promisify(exec);
 
 const DEFAULT_STARTUP_WAIT_MS = 1500;
 const DEFAULT_INITIALIZE_TIMEOUT_MS = 10_000;
-const DEFAULT_TOOLS_LIST_TIMEOUT_MS = 10_000;
-const DEFAULT_CONNECTION_TIMEOUT_MS = 15_000;
-const DEFAULT_AUTH_PROBE_TIMEOUT_MS = 10_000;
+const DEFAULT_TOOLS_LIST_TIMEOUT_MS = 20_000;
+const DEFAULT_CONNECTION_TIMEOUT_MS = 60_000;
+const DEFAULT_AUTH_PROBE_TIMEOUT_MS = 20_000;
 const DEFAULT_POLL_INTERVAL_MS = 25;
 
 export interface IntegrationTestInput {
@@ -115,7 +115,22 @@ function sampleValue(paramName: string, schema: Record<string, unknown>): unknow
   const type = typeof schema.type === 'string' ? schema.type.toLowerCase() : 'string';
 
   if (lowerName.includes('url')) {
-    return 'https://example.com';
+    return 'http://localhost:8888/v1/agent/health';
+  }
+  if (lowerName.includes('max_pages')) {
+    return 1;
+  }
+  if (lowerName.includes('max_depth')) {
+    return 1;
+  }
+  if (lowerName === 'limit' || lowerName.endsWith('_limit')) {
+    return 3;
+  }
+  if (lowerName === 'page_size' || lowerName === 'pagesize') {
+    return 5;
+  }
+  if (lowerName === 'page') {
+    return 1;
   }
   if (
     lowerName === 'q' ||
@@ -123,7 +138,7 @@ function sampleValue(paramName: string, schema: Record<string, unknown>): unknow
     lowerName.includes('keyword') ||
     lowerName.includes('search')
   ) {
-    return 'test';
+    return 'health';
   }
   if (lowerName.includes('email')) {
     return 'test@example.com';
@@ -162,6 +177,30 @@ function buildToolArgs(tool: DiscoveredTool): Record<string, unknown> {
       continue;
     }
     args[name] = sampleValue(name, asRecord(rawSchema));
+  }
+
+  const throttleOptionDefaults: Record<string, number> = {
+    limit: 3,
+    max_pages: 1,
+    max_depth: 1,
+    page_size: 5,
+    pagesize: 5,
+    page: 1
+  };
+
+  for (const [key, value] of Object.entries(throttleOptionDefaults)) {
+    if (Object.prototype.hasOwnProperty.call(args, key)) {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(properties, key)) {
+      continue;
+    }
+    const schema = asRecord(properties[key]);
+    const type = typeof schema.type === 'string' ? schema.type.toLowerCase() : '';
+    if (type !== 'integer' && type !== 'number' && type !== '') {
+      continue;
+    }
+    args[key] = value;
   }
 
   if (Object.keys(args).length === 0) {
