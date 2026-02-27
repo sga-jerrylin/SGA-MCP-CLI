@@ -216,6 +216,10 @@ export function frameMcpMessage(msg: object): Buffer {
   return Buffer.concat([header, payload]);
 }
 
+function frameLegacyMcpMessage(msg: object): Buffer {
+  return Buffer.from(`${JSON.stringify(msg)}\n`, 'utf8');
+}
+
 export function parseMcpMessages(data: Buffer<ArrayBufferLike>): {
   messages: JsonRpcMessage[];
   rest: Buffer<ArrayBufferLike>;
@@ -254,7 +258,19 @@ export function parseMcpMessages(data: Buffer<ArrayBufferLike>): {
     }
 
     if (headerIndex === 0) {
-      const headerEnd = rest.indexOf('\r\n\r\n');
+      const headerEndCrlf = rest.indexOf('\r\n\r\n');
+      const headerEndLf = rest.indexOf('\n\n');
+      let headerEnd = -1;
+      let headerDelimiterLength = 0;
+
+      if (headerEndCrlf >= 0 && (headerEndLf < 0 || headerEndCrlf <= headerEndLf)) {
+        headerEnd = headerEndCrlf;
+        headerDelimiterLength = 4;
+      } else if (headerEndLf >= 0) {
+        headerEnd = headerEndLf;
+        headerDelimiterLength = 2;
+      }
+
       if (headerEnd === -1) {
         break;
       }
@@ -279,12 +295,12 @@ export function parseMcpMessages(data: Buffer<ArrayBufferLike>): {
         continue;
       }
 
-      const frameEnd = headerEnd + 4 + contentLength;
+      const frameEnd = headerEnd + headerDelimiterLength + contentLength;
       if (rest.length < frameEnd) {
         break;
       }
 
-      const body = rest.subarray(headerEnd + 4, frameEnd).toString('utf8');
+      const body = rest.subarray(headerEnd + headerDelimiterLength, frameEnd).toString('utf8');
       pushJson(body);
       rest = rest.subarray(frameEnd);
       continue;
@@ -352,7 +368,8 @@ export class IntegrationTester {
       const env = {
         ...process.env,
         ...input.authEnv,
-        MCP_BASE_URL: input.baseUrl
+        MCP_BASE_URL: input.baseUrl,
+        BASE_URL: input.baseUrl
       };
 
       const pushLog = (target: string[], text: string): void => {
@@ -416,7 +433,10 @@ export class IntegrationTester {
         await sleep(this.startupWaitMs);
       }
 
-      const writeMessage = (message: JsonRpcMessage): void => {
+      const writeMessage = (
+        message: JsonRpcMessage,
+        mode: 'framed' | 'legacy' = 'framed'
+      ): void => {
         if (!serverProcess?.stdin) {
           throw new Error('Server stdin is not available');
         }
@@ -426,7 +446,9 @@ export class IntegrationTester {
         if (serverExited) {
           throw new Error(buildExitError(Number(message.id ?? -1)));
         }
-        serverProcess.stdin.write(frameMcpMessage(message));
+        const payload =
+          mode === 'legacy' ? frameLegacyMcpMessage(message) : frameMcpMessage(message);
+        serverProcess.stdin.write(payload);
       };
 
       const waitForResponseById = async (
@@ -480,7 +502,8 @@ export class IntegrationTester {
         if (!timeoutOnFirstTry || serverExited || spawnError || secondInitializeTimeoutMs === 0) {
           throw error;
         }
-        writeMessage(initializeMessage);
+        // Compatibility fallback for old line-delimited stdio servers.
+        writeMessage(initializeMessage, 'legacy');
         await waitForResponseById(1, secondInitializeTimeoutMs);
       }
 

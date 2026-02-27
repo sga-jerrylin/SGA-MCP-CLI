@@ -282,6 +282,105 @@ describe('IntegrationTester', () => {
     expect(kill).toHaveBeenCalledTimes(1);
   });
 
+  it('retries initialize with legacy newline frame when first framed request times out', async () => {
+    const mockExec = jest.fn().mockResolvedValue({ stdout: 'ok' });
+    const writes: Buffer[] = [];
+    const stdout = new EventEmitter();
+    const stderr = new EventEmitter();
+    const kill = jest.fn();
+
+    const stdin = {
+      write: jest.fn((chunk: Buffer) => {
+        writes.push(Buffer.from(chunk));
+        const payload = chunk.toString('utf8');
+
+        const isInit = payload.includes('"id":1') && payload.includes('"method":"initialize"');
+        const isLegacyFrame = !payload.toLowerCase().includes('content-length:');
+        if (isInit && isLegacyFrame) {
+          stdout.emit(
+            'data',
+            frame({
+              jsonrpc: '2.0',
+              id: 1,
+              result: {
+                protocolVersion: '2024-11-05',
+                capabilities: { tools: {} },
+                serverInfo: { name: 'demo', version: '1.0.0' }
+              }
+            })
+          );
+        }
+
+        if (payload.includes('"id":2') && payload.includes('"method":"tools/list"')) {
+          stdout.emit(
+            'data',
+            frame({
+              jsonrpc: '2.0',
+              id: 2,
+              result: {
+                tools: [{ name: 'echo' }]
+              }
+            })
+          );
+        }
+
+        if (payload.includes('"id":3') && payload.includes('"method":"tools/call"')) {
+          stdout.emit(
+            'data',
+            frame({
+              jsonrpc: '2.0',
+              id: 3,
+              result: { ok: true }
+            })
+          );
+        }
+
+        if (payload.includes('"id":4') && payload.includes('"method":"tools/call"')) {
+          stdout.emit(
+            'data',
+            frame({
+              jsonrpc: '2.0',
+              id: 4,
+              result: { ok: true }
+            })
+          );
+        }
+
+        return true;
+      })
+    };
+
+    const proc = Object.assign(new EventEmitter(), {
+      pid: 1234,
+      kill,
+      stdin,
+      stdout,
+      stderr
+    });
+    const mockSpawn = jest.fn().mockReturnValue(proc as never);
+
+    const tester = new IntegrationTester({
+      exec: mockExec,
+      spawn: mockSpawn as never,
+      startupWaitMs: 0,
+      initializeTimeoutMs: 3200,
+      pollIntervalMs: 5
+    });
+
+    const result = await tester.run({
+      dir: '/output/generated',
+      baseUrl: 'https://api.example.com',
+      authEnv: {}
+    });
+
+    expect(result.passed).toBe(true);
+    const initWrites = writes.filter((chunk) => chunk.toString('utf8').includes('"id":1'));
+    expect(initWrites.length).toBeGreaterThanOrEqual(2);
+    expect(
+      initWrites.some((chunk) => !chunk.toString('utf8').toLowerCase().includes('content-length:'))
+    ).toBe(true);
+  });
+
   it('marks auth probe as required when first tool returns auth error', async () => {
     const mockExec = jest.fn().mockResolvedValue({ stdout: 'ok' });
     const writes: Buffer[] = [];
@@ -393,6 +492,26 @@ describe('IntegrationTester', () => {
     const parsed = parseMcpMessages(Buffer.concat([noise, message]));
     expect(parsed.messages).toHaveLength(1);
     expect(parsed.messages[0]).toMatchObject({ id: 1 });
+    expect(parsed.rest.length).toBe(0);
+  });
+
+  it('parses Content-Length frames that use LF-only header delimiters', () => {
+    const payload = Buffer.from(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 9,
+        result: { ok: true }
+      }),
+      'utf8'
+    );
+    const frameLf = Buffer.concat([
+      Buffer.from(`Content-Length: ${String(payload.length)}\n\n`, 'utf8'),
+      payload
+    ]);
+
+    const parsed = parseMcpMessages(frameLf);
+    expect(parsed.messages).toHaveLength(1);
+    expect(parsed.messages[0]).toMatchObject({ id: 9 });
     expect(parsed.rest.length).toBe(0);
   });
 
