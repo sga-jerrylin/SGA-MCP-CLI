@@ -239,10 +239,21 @@ export function parseMcpMessages(data: Buffer<ArrayBufferLike>): {
   };
 
   while (rest.length > 0) {
-    const lowerPrefix = rest.subarray(0, Math.min(rest.length, 32)).toString('utf8').toLowerCase();
-    const startsWithHeader = lowerPrefix.startsWith('content-length:');
+    const text = rest.toString('utf8');
+    const headerMatch = /content-length:/i.exec(text);
+    const headerIndex = headerMatch?.index ?? -1;
 
-    if (startsWithHeader) {
+    if (headerIndex > 0) {
+      const prefixText = text.slice(0, headerIndex);
+      for (const line of prefixText.split(/\r?\n/)) {
+        pushJson(line);
+      }
+      const dropBytes = Buffer.byteLength(prefixText, 'utf8');
+      rest = rest.subarray(dropBytes);
+      continue;
+    }
+
+    if (headerIndex === 0) {
       const headerEnd = rest.indexOf('\r\n\r\n');
       if (headerEnd === -1) {
         break;

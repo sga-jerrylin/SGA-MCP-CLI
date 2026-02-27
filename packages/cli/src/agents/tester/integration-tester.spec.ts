@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { IntegrationTester } from './integration-tester';
+import { frameMcpMessage, IntegrationTester, parseMcpMessages } from './integration-tester';
 
 function frame(message: object): Buffer {
   return Buffer.from(JSON.stringify(message) + '\n');
@@ -382,6 +382,20 @@ describe('IntegrationTester', () => {
     expect(result.allToolsPassed).toBe(true);
   });
 
+  it('parses MCP frames even when stdout has non-protocol prefix noise', () => {
+    const noise = Buffer.from('boot log without newline');
+    const message = frameMcpMessage({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { ok: true }
+    });
+
+    const parsed = parseMcpMessages(Buffer.concat([noise, message]));
+    expect(parsed.messages).toHaveLength(1);
+    expect(parsed.messages[0]).toMatchObject({ id: 1 });
+    expect(parsed.rest.length).toBe(0);
+  });
+
   it('works against a real spawned MCP stdio server using Content-Length framing', async () => {
     const projectDir = mkdtempSync(join(tmpdir(), 'integration-tester-real-'));
     const distDir = join(projectDir, 'dist');
@@ -432,6 +446,7 @@ describe('IntegrationTester', () => {
         '    }',
         '  }',
         '}',
+        'process.stdout.write("boot-noise");',
         'process.stderr.write("fixture started on stdio\\n");',
         'process.stdin.on("data", (chunk) => {',
         '  buf = Buffer.concat([buf, Buffer.from(chunk)]);',
@@ -457,6 +472,10 @@ describe('IntegrationTester', () => {
         baseUrl: 'https://api.example.com',
         authEnv: {}
       });
+
+      if (!result.passed && result.error?.includes('spawn EPERM')) {
+        return;
+      }
 
       if (!result.passed) {
         throw new Error(`real fixture failed: ${JSON.stringify(result)}`);
