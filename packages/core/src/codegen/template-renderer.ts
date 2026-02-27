@@ -189,9 +189,15 @@ function renderHttpClient(ir: IR): string {
   const base = [
     'import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios";',
     '',
+    'const DEFAULT_HTTP_TIMEOUT_MS = 120000;',
+    'const parsedTimeout = Number(process.env.HTTP_TIMEOUT_MS ?? "");',
+    'const requestTimeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0',
+    '  ? parsedTimeout',
+    '  : DEFAULT_HTTP_TIMEOUT_MS;',
+    '',
     'const client: AxiosInstance = axios.create({',
     `  baseURL: process.env.BASE_URL ?? ${JSON.stringify(ir.system.baseUrl)},`,
-    '  timeout: 30000,',
+    '  timeout: requestTimeoutMs,',
     '  headers: { "Content-Type": "application/json" },',
     '});',
     ''

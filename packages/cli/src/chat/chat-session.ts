@@ -6,9 +6,9 @@ import { promisify } from 'node:util';
 
 import chalk from 'chalk';
 
-import { IntegrationTester } from '../agents/tester/integration-tester';
+import { IntegrationTester, type IntegrationTestReport } from '../agents/tester/integration-tester';
 import { TestRunner } from '../agents/tester/test-runner';
-import { deriveProjectName, generateCommand, isUrl } from '../commands/generate.command';
+import { deriveProjectName, generateCommand } from '../commands/generate.command';
 import { publishCommand } from '../commands/publish.command';
 import { SgaConfig } from '../config/sga-config';
 import type { ChatCapableLlmProvider, ChatMessage, ToolCall } from '../llm/llm-client';
@@ -20,6 +20,7 @@ import { HttpFetchTool } from '../tools/http-tool';
 import { PdfTool } from '../tools/pdf-tool';
 import { getMarketUrl, getToken, saveToken } from '../utils/auth';
 import type { ChatConfig } from './chat-types';
+import { renderMarkdown } from './terminal-markdown';
 import { buildToolDefinitions, type ChatToolName } from './tool-definitions';
 
 const execAsync = promisify(exec);
@@ -41,7 +42,6 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 
 const MAX_DOC_FILE_COUNT = 30;
-const MAX_SNIPPET_LENGTH = 8000;
 const MAX_FILE_READ_LENGTH = 200_000;
 const MAX_TEST_OUTPUT = 6000;
 const MAX_PDF_CONTENT = 100_000;
@@ -498,10 +498,6 @@ function extractOpenApiEndpoints(
   };
 }
 
-function isTextLikeFile(filePath: string): boolean {
-  return TEXT_EXTENSIONS.has(extname(filePath).toLowerCase());
-}
-
 function findNearestFile(startDir: string, fileName: string, maxLevels = 6): string | undefined {
   let current = resolve(startDir);
 
@@ -567,7 +563,11 @@ async function readGitContext(workDir: string): Promise<GitContext> {
   };
 }
 
-async function buildSystemPrompt(workDir: string, restoredMessages = 0): Promise<string> {
+async function buildSystemPrompt(
+  workDir: string,
+  restoredMessages = 0,
+  toolCount = 18
+): Promise<string> {
   const [projectName, gitCtx] = await Promise.all([
     readProjectName(workDir),
     readGitContext(workDir)
@@ -667,8 +667,15 @@ async function buildSystemPrompt(workDir: string, restoredMessages = 0): Promise
     '- Call ONE tool at a time. Do not call multiple tools in parallel unless clearly needed.',
     '- After reading docs, summarize what tools you would generate BEFORE generating.',
     '',
+    '# CRITICAL: read_folder vs read_file',
+    '- read_folder returns ONLY a file listing (names and sizes). It does NOT return file content.',
+    '- You MUST call read_file for EACH documentation file you need to analyze.',
+    '- Workflow: read_folder (discover files) → read_file (read each relevant file FULLY) → analyze → generate.',
+    '- NEVER skip read_file. NEVER assume you have file content from read_folder alone.',
+    '- If there are multiple doc files (.md, .txt, .json, .yaml), read ALL of them before generating.',
+    '',
     '# Available Tools Summary',
-    'You now have 15 tools. Use them in combination:',
+    `You have ${String(toolCount)} tools. Use them in combination:`,
     '',
     'Discovery flow:',
     '  "make MCP for Stripe" -> sga_search("Stripe API documentation") -> discover best docs URL -> fetch_url or crawl_docs -> generate_mcp',
@@ -733,28 +740,44 @@ async function buildSystemPrompt(workDir: string, restoredMessages = 0): Promise
     'When something fails, DO NOT give up. Analyze 鈫?Fix 鈫?Verify.',
     '',
     '# Workflow',
-    '1) Read docs: read_folder (discover files) -> read_file (read full content) or fetch_url (web)',
-    '   IMPORTANT: Always read the COMPLETE document before analyzing. Truncated docs lead to missing endpoints.',
-    '2) Analyze: identify ALL endpoints, params, auth method, data models',
-    '3) Propose: tell user what MCP tools you will generate and why. Wait for user confirmation.',
-    '4) Generate: call generate_mcp to produce the server code',
-    '5) Validate: use run_command to compile and verify the generated project:',
+    '1) Discover files: call read_folder to get file listing (names + sizes only).',
+    '2) Read each file: call read_file for EVERY documentation file found. Do NOT skip any.',
+    '   IMPORTANT: read_folder does NOT return file content. You MUST call read_file individually.',
+    '   For web sources: use fetch_url or crawl_docs.',
+    '3) Analyze: identify ALL endpoints, params, auth method, data models.',
+    '4) Propose: tell user what MCP tools you will generate and why. Wait for user confirmation.',
+    '5) Generate: call generate_mcp to produce the server code.',
+    '6) Validate: use run_command to compile and verify the generated project:',
     '   - run_command("npx tsc --noEmit") to check TypeScript compilation',
     '   - If errors, fix them with run_command (install deps, etc.)',
     '   - run_command("npx jest") if tests exist',
-    '6) **STOP here.** Report what was generated (tool count, files, output dir).',
+    '7) **STOP here.** Report generation result ACCURATELY:',
+    '   - Use search_files or read_file on the generated src/ to count the EXACT number of tools.',
+    '   - Report the exact tool count, tool names, file list, and output directory.',
+    '   - Do NOT guess or estimate the tool count. Count them from the source code.',
     '   Then ask the user:',
     '   - "瑕佽繘琛岄泦鎴愭祴璇曞悧锛熻鎻愪緵锛?) API base URL  2) 闇€瑕佺殑 credentials (濡?API key)"',
     '   - Do NOT call test_integration until the user provides the URL and credentials.',
-    '   - If user says skip, go directly to step 8.',
-    '7) Integration test: call test_integration with the user-provided base_url and auth_env.',
-    '8) **STOP again.** Show test results. Ask: "瑕佸彂甯冨埌 MCP Market 鍚楋紵"',
+    '   - If user says skip, go directly to step 10.',
+    '8) Integration test: call test_integration with the user-provided base_url and auth_env.',
+    '   - test_integration MUST execute every discovered tool at least once.',
+    '   - For tools with url arguments, NEVER guess blindly:',
+    '     * use test_targets.search_url for search-like tools',
+    '     * use test_targets.crawl_url for scrape/crawl tools (must be public URL, not localhost)',
+    '   - For multi-port or special tools, pass explicit tool_args to lock per-tool arguments.',
+    '   - Publishing is allowed only when all tools pass (allToolsPassed=true).',
+    '   - If test_integration fails, report the exact failed tools and errors to the user.',
+    '   - Do NOT retry blindly.',
+    '   - Do NOT modify generated server source code just to silence test failures.',
+    '9) **STOP again.** Show test results. Ask: "要发布到 MCP Market 吗？"',
     '   - Do NOT call publish_mcp until user confirms.',
     '   - publish_mcp requires market_url (e.g. http://localhost:3000) and token (access token).',
     '   - Token is saved after first use; market_url is saved after first use.',
     '   - On success, show the returned packageUrl to the user as a clickable link.',
     '',
-    '# CRITICAL: Never auto-proceed past step 6. Always pause for user input before integration testing and publishing.',
+    '10) Publish: call publish_mcp.',
+    '',
+    '# CRITICAL: Never auto-proceed past step 7. Always pause for user input before integration testing and publishing.',
     '',
     '# Self-Evolution Protocol',
     'When you complete an error鈫抐ix鈫抳erify cycle (run_command failed 鈫?you fixed it 鈫?run_command passed):',
@@ -809,6 +832,13 @@ interface PersistedState {
   history: ChatMessage[];
   lastSource?: string;
   lastGeneratedDir?: string;
+  lastIntegrationDir?: string;
+  lastIntegrationSummary?: {
+    passed: boolean;
+    allToolsPassed?: boolean;
+    toolsFound?: number;
+    failedTools?: Array<{ name: string; detail?: string }>;
+  };
 }
 
 function loadPersistedState(workDir: string): PersistedState | null {
@@ -855,6 +885,8 @@ export class ChatSession {
 
   private lastSource: string | undefined;
   private lastGeneratedDir: string | undefined;
+  private lastIntegrationDir: string | undefined;
+  private lastIntegrationSummary: PersistedState['lastIntegrationSummary'] | undefined;
   private cachedSystemPrompt: string | undefined;
 
   public constructor(
@@ -887,6 +919,8 @@ export class ChatSession {
       this.history.push(...persisted.history);
       this.lastSource = persisted.lastSource;
       this.lastGeneratedDir = persisted.lastGeneratedDir;
+      this.lastIntegrationDir = persisted.lastIntegrationDir;
+      this.lastIntegrationSummary = persisted.lastIntegrationSummary;
     }
   }
 
@@ -897,7 +931,11 @@ export class ChatSession {
 
   public async send(userMessage: string): Promise<void> {
     // Build system prompt once per user message (not per LLM call in tool loop)
-    this.cachedSystemPrompt = await buildSystemPrompt(this.config.workDir, this.history.length);
+    this.cachedSystemPrompt = await buildSystemPrompt(
+      this.config.workDir,
+      this.history.length,
+      this.tools.length
+    );
     const historySnapshot = this.history.length;
     this.history.push({ role: 'user', content: userMessage });
 
@@ -950,7 +988,7 @@ export class ChatSession {
   private async callLlm() {
     const systemPrompt =
       this.cachedSystemPrompt ??
-      (await buildSystemPrompt(this.config.workDir, this.history.length));
+      (await buildSystemPrompt(this.config.workDir, this.history.length, this.tools.length));
     const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }, ...this.history];
     return this.llm.chat(messages, this.tools);
   }
@@ -1024,14 +1062,21 @@ export class ChatSession {
     }
 
     const files = await this.fsTool.glob(folderPath, FOLDER_PATTERNS);
-    const textFiles = files.filter(isTextLikeFile).slice(0, MAX_DOC_FILE_COUNT);
-    const docs = await Promise.all(
-      textFiles.map(async (filePath) => {
-        const content = await this.fsTool.readFile(filePath);
-        return {
-          path: relative(this.config.workDir, filePath) || filePath,
-          preview: truncate(content, MAX_SNIPPET_LENGTH)
-        };
+    // Return only file listing with sizes — NO content.
+    // The LLM must call read_file for actual content.
+    const listing = await Promise.all(
+      files.slice(0, MAX_DOC_FILE_COUNT).map(async (filePath) => {
+        const relPath = relative(this.config.workDir, filePath) || filePath;
+        let size = 0;
+        try {
+          const content = await this.fsTool.readFile(filePath);
+          size = content.length;
+        } catch {
+          /* unreadable */
+        }
+        const ext = extname(filePath).toLowerCase();
+        const isText = TEXT_EXTENSIONS.has(ext);
+        return { path: relPath, size, isText };
       })
     );
 
@@ -1040,8 +1085,8 @@ export class ChatSession {
       {
         path: folderPath,
         fileCount: files.length,
-        files: files.map((filePath) => relative(this.config.workDir, filePath) || filePath),
-        docs
+        listing,
+        hint: 'This is a file listing only. Call read_file on each relevant file to get its full content.'
       },
       null,
       2
@@ -1792,12 +1837,66 @@ export class ChatSession {
       }
     }
 
+    if (
+      args.test_targets &&
+      typeof args.test_targets === 'object' &&
+      !Array.isArray(args.test_targets)
+    ) {
+      const targets = args.test_targets as Record<string, unknown>;
+      if (typeof targets.search_url === 'string' && targets.search_url.trim().length > 0) {
+        authEnv.MCP_TEST_SEARCH_TARGET_URL = targets.search_url.trim();
+      }
+      if (typeof targets.crawl_url === 'string' && targets.crawl_url.trim().length > 0) {
+        authEnv.MCP_TEST_CRAWL_TARGET_URL = targets.crawl_url.trim();
+      }
+    }
+
+    if (args.tool_args && typeof args.tool_args === 'object' && !Array.isArray(args.tool_args)) {
+      authEnv.MCP_TEST_TOOL_ARGS_JSON = JSON.stringify(args.tool_args);
+    }
+
     const tester = new IntegrationTester();
+    const resolvedDir = this.resolvePath(dirValue);
     const report = await tester.run({
-      dir: this.resolvePath(dirValue),
+      dir: resolvedDir,
       baseUrl,
       authEnv
     });
+
+    this.lastIntegrationDir = resolvedDir;
+    this.lastIntegrationSummary = {
+      passed: report.passed === true,
+      allToolsPassed: report.allToolsPassed === true,
+      toolsFound: typeof report.toolsFound === 'number' ? report.toolsFound : undefined,
+      failedTools: Array.isArray(report.toolResults)
+        ? report.toolResults
+            .filter(
+              (item): item is { name: string; ok: boolean; detail?: string } =>
+                Boolean(item) && typeof item.name === 'string' && item.ok === false
+            )
+            .map((item) => ({
+              name: item.name,
+              ...(typeof item.detail === 'string' ? { detail: item.detail } : {})
+            }))
+        : []
+    };
+
+    // Write discovered tools back to manifest.json so publish_mcp can send real tool names
+    if (report.tools && report.tools.length > 0) {
+      const manifestPath = join(resolvedDir, 'manifest.json');
+      try {
+        const existing = existsSync(manifestPath)
+          ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>)
+          : {};
+        existing.tools = report.tools;
+        existing.toolsCount = report.tools.length;
+        writeFileSync(manifestPath, JSON.stringify(existing, null, 2) + '\n', 'utf8');
+      } catch {
+        // Non-fatal — manifest update is best-effort
+      }
+    }
+
+    this.persistState();
 
     return JSON.stringify(report, null, 2);
   }
@@ -1817,8 +1916,28 @@ export class ChatSession {
       saveToken(existingToken, marketUrl);
     }
 
+    const targetDir = this.resolvePath(dirValue);
+    const hasStrictIntegrationPass =
+      this.lastIntegrationSummary?.passed === true &&
+      this.lastIntegrationSummary?.allToolsPassed === true &&
+      this.lastIntegrationDir === targetDir;
+
+    if (!hasStrictIntegrationPass) {
+      return JSON.stringify(
+        {
+          error:
+            'Publish blocked: run test_integration on this directory and ensure all discovered tools pass before publish.',
+          expectedDir: targetDir,
+          lastIntegrationDir: this.lastIntegrationDir ?? null,
+          lastIntegration: this.lastIntegrationSummary ?? null
+        },
+        null,
+        2
+      );
+    }
+
     try {
-      const result = await publishCommand({}, this.resolvePath(dirValue));
+      const result = await publishCommand({}, targetDir);
       const packageUrl = `${result.marketUrl}/repository`;
       return JSON.stringify({
         status: 'ok',
@@ -1826,7 +1945,7 @@ export class ChatSession {
         version: result.version,
         packageUrl,
         marketUrl: result.marketUrl,
-        dir: this.resolvePath(dirValue)
+        dir: targetDir
       });
     } catch (error) {
       return JSON.stringify({ error: formatError(error) });
@@ -1946,6 +2065,8 @@ export class ChatSession {
     this.history.length = 0;
     this.lastSource = undefined;
     this.lastGeneratedDir = undefined;
+    this.lastIntegrationDir = undefined;
+    this.lastIntegrationSummary = undefined;
     this.persistState();
   }
 
@@ -1954,7 +2075,9 @@ export class ChatSession {
       savePersistedState(this.config.workDir, {
         history: this.history,
         lastSource: this.lastSource,
-        lastGeneratedDir: this.lastGeneratedDir
+        lastGeneratedDir: this.lastGeneratedDir,
+        lastIntegrationDir: this.lastIntegrationDir,
+        lastIntegrationSummary: this.lastIntegrationSummary
       });
     } catch {
       // Non-critical 鈥?don't break the session if we can't save
@@ -1963,10 +2086,8 @@ export class ChatSession {
 
   private writeAssistant(text: string): void {
     this.output.write('\n');
-    for (const line of text.split('\n')) {
-      this.output.write(`  ${line}\n`);
-    }
-    this.output.write('\n');
+    this.output.write(renderMarkdown(text));
+    this.output.write('\n\n');
   }
 
   private writeToolStart(name: string, args: Record<string, unknown>): void {
@@ -1979,8 +2100,12 @@ export class ChatSession {
   private writeToolDone(name: string, result: string): void {
     try {
       const parsed = JSON.parse(result) as Record<string, unknown>;
-      if (parsed.error) {
-        this.output.write(`    ${chalk.red('x')} ${chalk.red(String(parsed.error))}\n`);
+      const isError = parsed.error || parsed.status === 'error' || parsed.passed === false;
+      if (isError) {
+        const errorText = parsed.error
+          ? String(parsed.error)
+          : this.toolResultSummary(name, parsed);
+        this.output.write(`    ${chalk.red('x')} ${chalk.red(errorText)}\n`);
       } else {
         const info = this.toolResultSummary(name, parsed);
         this.output.write(`    ${chalk.green('ok')} ${chalk.dim(info)}\n`);
@@ -2129,7 +2254,23 @@ export class ChatSession {
       case 'test_integration': {
         const passed = result.passed === true ? 'PASS' : 'FAIL';
         const tools = typeof result.toolsFound === 'number' ? result.toolsFound : 0;
-        return `${passed} 路 ${tools} tools`;
+        const allToolsPassed = result.allToolsPassed === true;
+        const failedCount = Array.isArray(result.toolResults)
+          ? result.toolResults.filter(
+              (item: unknown) =>
+                Boolean(item) && typeof item === 'object' && (item as { ok?: unknown }).ok === false
+            ).length
+          : 0;
+        const probe = result.authProbe as { authRequired?: boolean; authHint?: string } | undefined;
+        const authStatus = probe
+          ? probe.authRequired
+            ? ' | AUTH REQUIRED'
+            : ' | no auth needed'
+          : '';
+        const toolsStatus = allToolsPassed
+          ? ' | all tools passed'
+          : ` | failed tools: ${failedCount}`;
+        return `${passed} · ${tools} tools${toolsStatus}${authStatus}`;
       }
       case 'publish_mcp':
         return result.status === 'ok'

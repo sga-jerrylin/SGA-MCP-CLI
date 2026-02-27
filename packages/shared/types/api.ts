@@ -220,6 +220,7 @@ export interface Package {
   description?: string;
   category: string;
   toolCount: number;
+  manifestSchemaVersion?: 'v2' | 'legacy';
   tools?: Array<{
     name: string;
     description?: string;

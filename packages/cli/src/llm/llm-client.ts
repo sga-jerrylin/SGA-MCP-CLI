@@ -122,6 +122,7 @@ export class OpenRouterProvider implements LlmProvider {
 
   public async chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<ChatResponse> {
     const endpoint = `${this.baseUrl.replace(/\/+$/, '')}/chat/completions`;
+    const isMinimaxModel = this.model.toLowerCase().includes('minimax');
     const body = JSON.stringify({
       model: this.model,
       messages: messages.map((message) => ({
@@ -130,7 +131,7 @@ export class OpenRouterProvider implements LlmProvider {
         ...(message.tool_call_id ? { tool_call_id: message.tool_call_id } : {}),
         ...(message.tool_calls ? { tool_calls: message.tool_calls } : {})
       })),
-      ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
+      ...(!isMinimaxModel && tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
       max_tokens: 8192
     });
 
@@ -139,6 +140,8 @@ export class OpenRouterProvider implements LlmProvider {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120_000);
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
@@ -147,8 +150,10 @@ export class OpenRouterProvider implements LlmProvider {
             'HTTP-Referer': 'https://github.com/mcp-claw',
             'X-Title': 'MCP-Claw'
           },
-          body
+          body,
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (response.status >= 500 || response.status === 429) {
           lastError = new Error(`OpenRouter error: ${response.status} ${await response.text()}`);
@@ -175,10 +180,11 @@ export class OpenRouterProvider implements LlmProvider {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         const msg = lastError.message;
-        // Retry on network errors (timeout, ECONNRESET, etc.)
+        // Retry on network errors (timeout, abort, ECONNRESET, etc.)
         if (
           msg.includes('fetch failed') ||
           msg.includes('Timeout') ||
+          msg.includes('abort') ||
           msg.includes('ECONNRESET') ||
           msg.includes('ECONNREFUSED')
         ) {

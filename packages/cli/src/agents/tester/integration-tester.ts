@@ -105,7 +105,46 @@ function asRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function sampleValue(paramName: string, schema: Record<string, unknown>): unknown {
+type ToolArgOverrides = Record<string, Record<string, unknown>>;
+
+function readToolArgOverrides(): ToolArgOverrides {
+  const raw = process.env.MCP_TEST_TOOL_ARGS_JSON;
+  if (!raw || raw.trim().length === 0) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+    const out: ToolArgOverrides = {};
+    for (const [toolName, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        continue;
+      }
+      out[toolName] = value as Record<string, unknown>;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function isCrawlerLikeTool(toolName: string): boolean {
+  const lower = toolName.toLowerCase();
+  return (
+    lower.includes('scrape') ||
+    lower.includes('crawl') ||
+    lower.includes('spider') ||
+    lower.includes('site')
+  );
+}
+
+function sampleValue(
+  toolName: string,
+  paramName: string,
+  schema: Record<string, unknown>
+): unknown {
   const enumValues = Array.isArray(schema.enum) ? schema.enum : [];
   if (enumValues.length > 0) {
     return enumValues[0];
@@ -115,7 +154,18 @@ function sampleValue(paramName: string, schema: Record<string, unknown>): unknow
   const type = typeof schema.type === 'string' ? schema.type.toLowerCase() : 'string';
 
   if (lowerName.includes('url')) {
-    return 'http://localhost:8888/v1/agent/health';
+    if (isCrawlerLikeTool(toolName)) {
+      return (
+        process.env.MCP_TEST_CRAWL_TARGET_URL ??
+        process.env.MCP_TEST_TARGET_URL ??
+        'https://example.com'
+      );
+    }
+    return (
+      process.env.MCP_TEST_SEARCH_TARGET_URL ??
+      process.env.MCP_TEST_TARGET_URL ??
+      'http://localhost:8888/search'
+    );
   }
   if (lowerName.includes('max_pages')) {
     return 1;
@@ -162,7 +212,7 @@ function sampleValue(paramName: string, schema: Record<string, unknown>): unknow
   }
 }
 
-function buildToolArgs(tool: DiscoveredTool): Record<string, unknown> {
+function buildToolArgs(tool: DiscoveredTool, overrides: ToolArgOverrides): Record<string, unknown> {
   const inputSchema = asRecord(tool.inputSchema);
   const properties = asRecord(inputSchema.properties);
   const required = Array.isArray(inputSchema.required)
@@ -176,7 +226,7 @@ function buildToolArgs(tool: DiscoveredTool): Record<string, unknown> {
     if (!requiredSet.has(name)) {
       continue;
     }
-    args[name] = sampleValue(name, asRecord(rawSchema));
+    args[name] = sampleValue(tool.name, name, asRecord(rawSchema));
   }
 
   const throttleOptionDefaults: Record<string, number> = {
@@ -202,6 +252,13 @@ function buildToolArgs(tool: DiscoveredTool): Record<string, unknown> {
     }
     args[key] = value;
   }
+
+  const bareToolName = tool.name.includes('.')
+    ? (tool.name.split('.').pop() ?? tool.name)
+    : tool.name;
+  const wildcardOverrides = asRecord(overrides['*']);
+  const toolOverrides = asRecord(overrides[tool.name] ?? overrides[bareToolName]);
+  Object.assign(args, wildcardOverrides, toolOverrides);
 
   if (Object.keys(args).length === 0) {
     return {};
@@ -466,6 +523,7 @@ export class IntegrationTester {
       });
 
       const messageQueue: JsonRpcMessage[] = [];
+      const toolArgOverrides = readToolArgOverrides();
       let stdoutBuffer: Buffer<ArrayBufferLike> = Buffer.alloc(0);
       serverProcess.stdout?.on('data', (chunk: Buffer | string) => {
         const chunkBuffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
@@ -660,7 +718,7 @@ export class IntegrationTester {
           continue;
         }
 
-        const args = buildToolArgs(tool);
+        const args = buildToolArgs(tool, toolArgOverrides);
         const callId = nextCallId++;
         writeMessage({
           jsonrpc: '2.0',

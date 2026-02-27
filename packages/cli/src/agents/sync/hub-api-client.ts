@@ -1,4 +1,3 @@
-import chalk from 'chalk';
 import { getToken } from '../../utils/auth';
 
 export class HubApiClient {
@@ -39,7 +38,6 @@ export class HubApiClient {
       return token;
     }
 
-    console.error(chalk.red('未检测到登录凭证，请先执行: mcp-claw login'));
-    process.exit(1);
+    throw new Error('未检测到登录凭证，请先执行: mcp-claw login');
   }
 }

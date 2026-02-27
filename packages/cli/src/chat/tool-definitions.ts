@@ -29,8 +29,8 @@ export function buildToolDefinitions(config: ChatConfig): ToolDefinition[] {
       function: {
         name: 'read_folder',
         description: [
-          'Inspect local project files for API docs and implementation clues.',
-          'Use this first when the user mentions current/project directory, a folder, or gives no explicit path.',
+          'List files in a local directory. Returns ONLY file names, sizes, and types — NO file content.',
+          'Use this first to discover what files exist, then call read_file on each relevant file.',
           `If path is omitted, default to current working directory: ${config.workDir}.`
         ].join(' '),
         parameters: {
@@ -51,9 +51,9 @@ export function buildToolDefinitions(config: ChatConfig): ToolDefinition[] {
       function: {
         name: 'read_file',
         description: [
-          'Read the FULL content of a single file. Use this when you need the complete content of a specific file,',
-          'especially after read_folder shows a preview was truncated.',
-          'Always prefer this over read_folder when the user mentions a specific file name.'
+          'Read the FULL content of a single file. ALWAYS call this after read_folder to get actual file content.',
+          'read_folder only lists file names — this tool reads the content.',
+          'Call this for EVERY relevant file discovered by read_folder.'
         ].join(' '),
         parameters: {
           type: 'object',
@@ -398,7 +398,8 @@ export function buildToolDefinitions(config: ChatConfig): ToolDefinition[] {
         description: [
           'Build the generated MCP server, start it as a subprocess, then perform real MCP tools/list and tools/call connectivity checks.',
           'Use this after generate_mcp and run_tests.',
-          'Requires base_url; auth_env is optional key/value credentials.'
+          'Requires base_url; auth_env is optional key/value credentials.',
+          'This test validates every discovered tool. Publish only after all tools pass.'
         ].join(' '),
         parameters: {
           type: 'object',
@@ -415,6 +416,33 @@ export function buildToolDefinitions(config: ChatConfig): ToolDefinition[] {
               type: 'object',
               description: 'Optional credentials as env vars, for example {"MY_API_KEY":"sk-xxx"}',
               additionalProperties: { type: 'string' }
+            },
+            test_targets: {
+              type: 'object',
+              description:
+                'Optional deterministic test targets. Use search_url for search-like URL params and crawl_url for scrape/crawl URL params.',
+              properties: {
+                search_url: {
+                  type: 'string',
+                  description:
+                    'Target URL for search-like tools (default: http://localhost:8888/search)'
+                },
+                crawl_url: {
+                  type: 'string',
+                  description:
+                    'Target URL for crawl/scrape tools; must be publicly reachable (default: https://example.com)'
+                }
+              },
+              additionalProperties: false
+            },
+            tool_args: {
+              type: 'object',
+              description:
+                'Optional per-tool fixed arguments map, e.g. {"sga_scrape":{"url":"https://example.com"}}. Use "*" as wildcard.',
+              additionalProperties: {
+                type: 'object',
+                additionalProperties: true
+              }
             }
           },
           required: ['base_url'],

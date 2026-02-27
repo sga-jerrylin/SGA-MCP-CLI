@@ -487,6 +487,119 @@ describe('IntegrationTester', () => {
     expect(result.allToolsPassed).toBe(true);
   });
 
+  it('uses deterministic crawl target URL for crawler-like tools', async () => {
+    const previous = process.env.MCP_TEST_CRAWL_TARGET_URL;
+    process.env.MCP_TEST_CRAWL_TARGET_URL = 'https://example.org/page';
+    try {
+      const mockExec = jest.fn().mockResolvedValue({ stdout: 'ok' });
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      const kill = jest.fn();
+      let capturedUrl = '';
+
+      const stdin = {
+        write: jest.fn((chunk: Buffer) => {
+          const payload = chunk.toString('utf8');
+
+          if (payload.includes('"id":1') && payload.includes('"method":"initialize"')) {
+            stdout.emit(
+              'data',
+              frame({
+                jsonrpc: '2.0',
+                id: 1,
+                result: {
+                  protocolVersion: '2024-11-05',
+                  capabilities: { tools: {} },
+                  serverInfo: { name: 'demo', version: '1.0.0' }
+                }
+              })
+            );
+          }
+
+          if (payload.includes('"id":2') && payload.includes('"method":"tools/list"')) {
+            stdout.emit(
+              'data',
+              frame({
+                jsonrpc: '2.0',
+                id: 2,
+                result: {
+                  tools: [
+                    {
+                      name: 'sga_scrape',
+                      inputSchema: {
+                        type: 'object',
+                        properties: { url: { type: 'string' } },
+                        required: ['url']
+                      }
+                    }
+                  ]
+                }
+              })
+            );
+          }
+
+          if (payload.includes('"id":3') && payload.includes('"method":"tools/call"')) {
+            stdout.emit(
+              'data',
+              frame({
+                jsonrpc: '2.0',
+                id: 3,
+                result: { ok: true }
+              })
+            );
+          }
+
+          if (payload.includes('"id":4') && payload.includes('"method":"tools/call"')) {
+            const parsed = parseMcpMessages(Buffer.from(chunk)).messages[0] as {
+              params?: { arguments?: { url?: string } };
+            };
+            capturedUrl = parsed?.params?.arguments?.url ?? '';
+            stdout.emit(
+              'data',
+              frame({
+                jsonrpc: '2.0',
+                id: 4,
+                result: { ok: true }
+              })
+            );
+          }
+
+          return true;
+        })
+      };
+
+      const proc = Object.assign(new EventEmitter(), {
+        pid: 1234,
+        kill,
+        stdin,
+        stdout,
+        stderr
+      });
+      const mockSpawn = jest.fn().mockReturnValue(proc as never);
+
+      const tester = new IntegrationTester({
+        exec: mockExec,
+        spawn: mockSpawn as never,
+        startupWaitMs: 0
+      });
+
+      const result = await tester.run({
+        dir: '/output/generated',
+        baseUrl: 'https://api.example.com',
+        authEnv: {}
+      });
+
+      expect(result.passed).toBe(true);
+      expect(capturedUrl).toBe('https://example.org/page');
+    } finally {
+      if (previous === undefined) {
+        delete process.env.MCP_TEST_CRAWL_TARGET_URL;
+      } else {
+        process.env.MCP_TEST_CRAWL_TARGET_URL = previous;
+      }
+    }
+  });
+
   it('parses MCP frames even when stdout has non-protocol prefix noise', () => {
     const noise = Buffer.from('boot log without newline');
     const message = frameMcpMessage({

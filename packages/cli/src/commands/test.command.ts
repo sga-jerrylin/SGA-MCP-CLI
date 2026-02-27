@@ -37,7 +37,46 @@ function asRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function sampleValue(paramName: string, schema: Record<string, unknown>): unknown {
+type ToolArgOverrides = Record<string, Record<string, unknown>>;
+
+function readToolArgOverrides(): ToolArgOverrides {
+  const raw = process.env.MCP_TEST_TOOL_ARGS_JSON;
+  if (!raw || raw.trim().length === 0) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+    const out: ToolArgOverrides = {};
+    for (const [toolName, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        continue;
+      }
+      out[toolName] = value as Record<string, unknown>;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function isCrawlerLikeTool(toolName: string): boolean {
+  const lower = toolName.toLowerCase();
+  return (
+    lower.includes('scrape') ||
+    lower.includes('crawl') ||
+    lower.includes('spider') ||
+    lower.includes('site')
+  );
+}
+
+function sampleValue(
+  toolName: string,
+  paramName: string,
+  schema: Record<string, unknown>
+): unknown {
   const enumValues = Array.isArray(schema.enum) ? schema.enum : [];
   if (enumValues.length > 0) {
     return enumValues[0];
@@ -46,7 +85,20 @@ function sampleValue(paramName: string, schema: Record<string, unknown>): unknow
   const lowerName = paramName.toLowerCase();
   const type = typeof schema.type === 'string' ? schema.type.toLowerCase() : 'string';
 
-  if (lowerName.includes('url')) return 'http://localhost:8888/v1/agent/health';
+  if (lowerName.includes('url')) {
+    if (isCrawlerLikeTool(toolName)) {
+      return (
+        process.env.MCP_TEST_CRAWL_TARGET_URL ??
+        process.env.MCP_TEST_TARGET_URL ??
+        'https://example.com'
+      );
+    }
+    return (
+      process.env.MCP_TEST_SEARCH_TARGET_URL ??
+      process.env.MCP_TEST_TARGET_URL ??
+      'http://localhost:8888/search'
+    );
+  }
   if (lowerName.includes('max_pages')) return 1;
   if (lowerName.includes('max_depth')) return 1;
   if (lowerName === 'limit' || lowerName.endsWith('_limit')) return 3;
@@ -77,7 +129,11 @@ function sampleValue(paramName: string, schema: Record<string, unknown>): unknow
   }
 }
 
-function buildToolArgs(inputSchema: unknown): Record<string, unknown> {
+function buildToolArgs(
+  toolName: string,
+  inputSchema: unknown,
+  overrides: ToolArgOverrides
+): Record<string, unknown> {
   const schema = asRecord(inputSchema);
   const properties = asRecord(schema.properties);
   const required = Array.isArray(schema.required)
@@ -86,7 +142,7 @@ function buildToolArgs(inputSchema: unknown): Record<string, unknown> {
 
   const args: Record<string, unknown> = {};
   for (const name of required) {
-    args[name] = sampleValue(name, asRecord(properties[name]));
+    args[name] = sampleValue(toolName, name, asRecord(properties[name]));
   }
 
   const throttleOptionDefaults: Record<string, number> = {
@@ -111,6 +167,12 @@ function buildToolArgs(inputSchema: unknown): Record<string, unknown> {
     }
     args[key] = value;
   }
+
+  const bareToolName = toolName.includes('.') ? (toolName.split('.').pop() ?? toolName) : toolName;
+  const wildcardOverrides = asRecord(overrides['*']);
+  const toolOverrides = asRecord(overrides[toolName] ?? overrides[bareToolName]);
+  Object.assign(args, wildcardOverrides, toolOverrides);
+
   return args;
 }
 
@@ -417,6 +479,7 @@ export async function testCommand(dir: string): Promise<void> {
       result?.tools?.filter(
         (tool): tool is { name: string; inputSchema?: unknown } => typeof tool?.name === 'string'
       ) ?? [];
+    const toolArgOverrides = readToolArgOverrides();
 
     console.log(chalk.green(`  OK tools/list: ${tools.length} tools`));
     if (tools.length > 0) {
@@ -452,7 +515,7 @@ export async function testCommand(dir: string): Promise<void> {
     const executableTools = tools.filter((tool) => tool.name !== 'test_connection');
     let failedTools = 0;
     for (const tool of executableTools) {
-      const args = buildToolArgs(tool.inputSchema);
+      const args = buildToolArgs(tool.name, tool.inputSchema, toolArgOverrides);
       const callId = nextCallId++;
       writeMessage({
         jsonrpc: '2.0',

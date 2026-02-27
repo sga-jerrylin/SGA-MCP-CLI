@@ -6,17 +6,7 @@ import chalk from 'chalk';
 import { DEFAULT_CONFIG_PATH, SgaConfig } from '../config/sga-config';
 import { OpenRouterProvider } from '../llm/llm-client';
 
-const MODEL_IDS = [
-  'anthropic/claude-opus-4.6',
-  'anthropic/claude-sonnet-4.6',
-  'anthropic/claude-sonnet-4.5',
-  'anthropic/claude-haiku-4.5',
-  'openai/gpt-5.2-codex',
-  'google/gemini-3-flash-preview',
-  'z-ai/glm-5',
-  'moonshotai/kimi-k2.5',
-  'minimax/minimax-m2.5'
-] as const;
+const MODEL_IDS = ['google/gemini-3-flash-preview', 'minimax/minimax-m2.5'] as const;
 
 const MODEL_ID_SET = new Set<string>(MODEL_IDS);
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';

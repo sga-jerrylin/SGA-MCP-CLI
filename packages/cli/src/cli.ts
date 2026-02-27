@@ -13,6 +13,7 @@ import { registerLogoutCommand } from './commands/logout.command';
 import { registerMemoryCommand } from './commands/memory.command';
 import { registerPublishCommand } from './commands/publish.command';
 import { runCommand } from './commands/run.command';
+import { registerTestCommand } from './commands/test.command';
 
 export function createCli(): Command {
   const program = new Command();
@@ -49,6 +50,7 @@ export function createCli(): Command {
   registerPublishCommand(program);
   registerInstallCommand(program);
   registerHubCommand(program);
+  registerTestCommand(program);
 
   program.action(async () => {
     const config = loadChatConfig();

@@ -1,38 +1,29 @@
 import * as readline from 'node:readline/promises';
 import chalk from 'chalk';
 
+import { SgaConfig } from '../config/sga-config';
 import type { ChatConfig } from './chat-types';
 import { ChatSession } from './chat-session';
 
-/** Model presets — displayed in menu order */
 const MODEL_PRESETS: Array<{ alias: string; id: string; label: string }> = [
-  // Anthropic
-  { alias: 'sonnet', id: 'anthropic/claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { alias: 'haiku', id: 'anthropic/claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (便宜快)' },
-  { alias: 'opus', id: 'anthropic/claude-opus-4-6', label: 'Claude Opus 4.6' },
-  // Qwen
-  { alias: 'qwen3.5', id: 'qwen/qwen3.5-plus-02-15', label: 'Qwen 3.5 Plus' },
-  { alias: 'qwen3.5-397b', id: 'qwen/qwen3.5-397b-a17b', label: 'Qwen 3.5 397B MoE' },
-  // Google
-  { alias: 'gemini-flash', id: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (便宜快)' },
-  { alias: 'gemini-pro', id: 'google/gemini-2.5-pro-preview', label: 'Gemini 2.5 Pro' },
-  // Other
-  { alias: 'minimax', id: 'minimax/minimax-m2.5', label: 'MiniMax M2.5' },
-  { alias: 'glm5', id: 'z-ai/glm-5', label: 'GLM-5 (智谱)' },
-  { alias: 'deepseek', id: 'deepseek/deepseek-chat-v3-0324', label: 'DeepSeek V3' },
-  // OpenAI
-  { alias: 'gpt4o', id: 'openai/gpt-4o', label: 'GPT-4o' },
-  { alias: 'gpt4o-mini', id: 'openai/gpt-4o-mini', label: 'GPT-4o Mini (便宜)' },
-  { alias: 'o3-mini', id: 'openai/o3-mini', label: 'o3-mini' }
+  { alias: 'gemini-flash', id: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash' },
+  { alias: 'minimax', id: 'minimax/minimax-m2.5', label: 'MiniMax M2.5' }
 ];
 
-/**
- * Interactive model picker — arrow keys to navigate, Enter to select, Esc to cancel.
- * Pauses the readline interface, enters raw mode, then restores when done.
- */
+function createRl(): readline.Interface {
+  // Ensure stdin is in flowing mode and referenced so the event loop stays alive
+  process.stdin.resume();
+  if (typeof process.stdin.ref === 'function') {
+    process.stdin.ref();
+  }
+  return readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+}
+
 function pickModel(rl: readline.Interface, currentModelId: string): Promise<string | null> {
   return new Promise((resolve) => {
-    // Pause readline so we can use raw mode
     rl.pause();
     const stdin = process.stdin;
     const stdout = process.stdout;
@@ -43,78 +34,31 @@ function pickModel(rl: readline.Interface, currentModelId: string): Promise<stri
     }
     stdin.resume();
 
-    // Find current selection index
     let cursor = Math.max(
       0,
-      MODEL_PRESETS.findIndex((m) => m.id === currentModelId)
+      MODEL_PRESETS.findIndex((model) => model.id === currentModelId)
     );
     const total = MODEL_PRESETS.length;
 
-    const render = () => {
-      // Move cursor up to redraw (after first render)
-      stdout.write(`\x1b[${total + 2}A`); // move up: items + header + footer
-      draw();
-    };
-
     const draw = () => {
       stdout.write(
-        `  ${chalk.white.bold('选择模型')} ${chalk.gray('(↑↓ 选择 · Enter 确认 · Esc 取消)')}\n`
+        `\n  ${chalk.white.bold('Select model')} ${chalk.gray('(↑/↓ choose, Enter confirm, Esc cancel)')}\n`
       );
-      for (let i = 0; i < total; i++) {
-        const m = MODEL_PRESETS[i];
-        const isSelected = i === cursor;
-        const pointer = isSelected ? chalk.cyan('❯') : ' ';
-        const alias = isSelected ? chalk.cyan.bold(m.alias) : chalk.white(m.alias);
-        const label = isSelected ? chalk.white(m.label) : chalk.gray(m.label);
-        const id = chalk.gray.dim(m.id);
-        stdout.write(
-          `  ${pointer} ${alias.padEnd(isSelected ? 25 : 25)} ${label.padEnd(isSelected ? 35 : 35)} ${id}\n`
-        );
+      for (let i = 0; i < total; i += 1) {
+        const item = MODEL_PRESETS[i];
+        const selected = i === cursor;
+        const marker = selected ? chalk.cyan('>') : ' ';
+        const alias = selected ? chalk.cyan.bold(item.alias) : chalk.white(item.alias);
+        const label = selected ? chalk.white(item.label) : chalk.gray(item.label);
+        const id = chalk.gray.dim(item.id);
+        stdout.write(`  ${marker} ${alias.padEnd(16)} ${label.padEnd(18)} ${id}\n`);
       }
-      stdout.write(`  ${chalk.gray('─'.repeat(55))}\n`);
+      stdout.write(`  ${chalk.gray('-'.repeat(72))}\n`);
     };
 
-    // Initial draw
-    draw();
-
-    const onKey = (data: Buffer) => {
-      const key = data.toString();
-
-      // Esc or Ctrl+C
-      if (key === '\x1b' || key === '\x03') {
-        cleanup();
-        resolve(null);
-        return;
-      }
-
-      // Enter
-      if (key === '\r' || key === '\n') {
-        cleanup();
-        resolve(MODEL_PRESETS[cursor].id);
-        return;
-      }
-
-      // Arrow up / k
-      if (key === '\x1b[A' || key === 'k') {
-        cursor = (cursor - 1 + total) % total;
-        render();
-        return;
-      }
-
-      // Arrow down / j
-      if (key === '\x1b[B' || key === 'j') {
-        cursor = (cursor + 1) % total;
-        render();
-        return;
-      }
-
-      // Number keys 1-9 for quick jump
-      const num = parseInt(key, 10);
-      if (num >= 1 && num <= total) {
-        cursor = num - 1;
-        render();
-        return;
-      }
+    const redraw = () => {
+      stdout.write(`\x1b[${total + 3}A`);
+      draw();
     };
 
     const cleanup = () => {
@@ -122,9 +66,48 @@ function pickModel(rl: readline.Interface, currentModelId: string): Promise<stri
       if (typeof stdin.setRawMode === 'function') {
         stdin.setRawMode(wasRaw ?? false);
       }
+      // Do NOT call stdin.pause() here — on Windows it can leave stdin
+      // in a fragile state that causes readline to fail on next question.
+      // Instead, keep stdin flowing and let readline resume normally.
+      stdin.resume();
       rl.resume();
     };
 
+    const onKey = (data: Buffer) => {
+      const key = data.toString();
+
+      if (key === '\x1b' || key === '\x03') {
+        cleanup();
+        resolve(null);
+        return;
+      }
+
+      if (key === '\r' || key === '\n') {
+        cleanup();
+        resolve(MODEL_PRESETS[cursor].id);
+        return;
+      }
+
+      if (key === '\x1b[A' || key === 'k') {
+        cursor = (cursor - 1 + total) % total;
+        redraw();
+        return;
+      }
+
+      if (key === '\x1b[B' || key === 'j') {
+        cursor = (cursor + 1) % total;
+        redraw();
+        return;
+      }
+
+      const num = Number.parseInt(key, 10);
+      if (Number.isInteger(num) && num >= 1 && num <= total) {
+        cursor = num - 1;
+        redraw();
+      }
+    };
+
+    draw();
     stdin.on('data', onKey);
   });
 }
@@ -162,111 +145,243 @@ function printRestoredHistory(session: ChatSession): void {
   if (count === 0) {
     return;
   }
+
   const turns = Math.floor(count / 2);
-  console.log(`  ${chalk.dim('↻')} ${chalk.gray(`已恢复上次对话 (${turns} 轮)`)}`);
+  console.log(`  ${chalk.dim('->')} ${chalk.gray(`restored previous chat (${turns} turns)`)}`);
 
   const rounds = session.getRecentRounds(3);
   if (rounds.length > 0) {
-    console.log(chalk.gray('  ' + '─'.repeat(50)));
+    console.log(chalk.gray('  ' + '-'.repeat(50)));
     for (const round of rounds) {
       const userPreview = round.userText.replace(/\s+/g, ' ').slice(0, 60);
       const assistantPreview = round.assistantText.replace(/\s+/g, ' ').slice(0, 70);
-      const toolNote = round.toolCount > 0 ? chalk.dim(` [${round.toolCount} 工具]`) : '';
+      const toolNote = round.toolCount > 0 ? chalk.dim(` [${round.toolCount} tools]`) : '';
       console.log(
-        `  ${chalk.cyan('你')}  ${chalk.white(userPreview)}${round.userText.length > 60 ? chalk.dim('…') : ''}`
+        `  ${chalk.cyan('you')}  ${chalk.white(userPreview)}${round.userText.length > 60 ? chalk.dim('...') : ''}`
       );
       if (assistantPreview) {
         console.log(
-          `  ${chalk.green('助手')} ${chalk.dim(assistantPreview)}${round.assistantText.length > 70 ? chalk.dim('…') : ''}${toolNote}`
+          `  ${chalk.green('bot')}  ${chalk.dim(assistantPreview)}${round.assistantText.length > 70 ? chalk.dim('...') : ''}${toolNote}`
         );
       } else if (round.toolCount > 0) {
-        console.log(`  ${chalk.green('助手')}${toolNote}`);
+        console.log(`  ${chalk.green('bot')}${toolNote}`);
       }
     }
-    console.log(chalk.gray('  ' + '─'.repeat(50)));
+    console.log(chalk.gray('  ' + '-'.repeat(50)));
   }
+
   console.log('');
 }
 
-/** Track current model ID for the picker highlight */
 let activeModelId = '';
 
-export async function startChatLoop(config: ChatConfig): Promise<void> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
+export async function startChatLoop(initialConfig: ChatConfig): Promise<void> {
+  let config = initialConfig;
+  const rlRef = { rl: createRl() };
+
+  // --- Global safety nets ---
+  // Prevent unhandled promise rejections from silently killing the process
+  const rejectionHandler = (reason: unknown) => {
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    console.error(`\n  ${chalk.red('unhandled rejection')} ${chalk.red(msg)}\n`);
+  };
+  process.on('unhandledRejection', rejectionHandler);
+
+  // Catch uncaught exceptions — log but don't let them kill the process
+  const exceptionHandler = (err: Error) => {
+    console.error(`\n  ${chalk.red('uncaught exception')} ${chalk.red(err.message)}\n`);
+  };
+  process.on('uncaughtException', exceptionHandler);
+
+  // Diagnostic: log any process exit to understand unexpected exits
+  const exitHandler = (code: number) => {
+    if (code !== 0) {
+      console.error(chalk.dim(`  [exit code ${code}]`));
+    }
+  };
+  process.on('exit', exitHandler);
+
+  if (!config.apiKey) {
+    console.log(chalk.yellow('\n  No API key configured.'));
+    console.log(chalk.gray('  Get one free at: https://openrouter.ai/settings/keys'));
+    console.log('');
+    let key = '';
+    try {
+      key = (await rlRef.rl.question('  Enter OpenRouter API Key (sk-or-...): ')).trim();
+    } catch {
+      rlRef.rl.close();
+      cleanup();
+      return;
+    }
+    if (!key) {
+      console.log(chalk.red('  API key is required. Exiting.'));
+      rlRef.rl.close();
+      cleanup();
+      return;
+    }
+    const sgaConfig = new SgaConfig();
+    sgaConfig.set('openrouter.apiKey', key);
+    config = { ...config, apiKey: key };
+    console.log(chalk.green('  Saved to ~/.sga/config.yaml\n'));
+  }
   const session = new ChatSession(config);
   activeModelId = config.model;
 
   printBanner(config);
   printRestoredHistory(session);
 
+  // --- SIGINT handling ---
+  // CRITICAL FIX: Do NOT call process.exit() in the SIGINT handler.
+  // On Windows, child_process.exec() can propagate CTRL_C_EVENT to the parent,
+  // which triggers SIGINT and immediately kills the process via process.exit(0).
+  // Instead: track SIGINT count. First press during send() is ignored (child signal noise).
+  // Only honor SIGINT when we're actually waiting for user input at the prompt.
+  let sigintCount = 0;
+  let insideSend = false;
+
   const handleSigint = () => {
-    rl.close();
-    process.exit(0);
+    if (insideSend) {
+      // During tool execution, SIGINT likely came from a child process signal propagation.
+      // Ignore it — the tool execution has its own timeout handling.
+      sigintCount = 0;
+      return;
+    }
+
+    sigintCount++;
+    if (sigintCount >= 2) {
+      // User pressed Ctrl+C twice at the prompt — they really want to exit
+      console.log(chalk.gray('\n  bye.\n'));
+      rlRef.rl.close();
+      process.exit(0);
+    }
+
+    // First Ctrl+C at the prompt — close readline gracefully (no process.exit)
+    console.log(chalk.gray('\n  (Ctrl+C again to exit)\n'));
+    // Write a new prompt so the user sees we're still alive
+    process.stdout.write(chalk.cyan.bold('> '));
   };
   process.on('SIGINT', handleSigint);
 
-  const prompt = chalk.cyan.bold('❯ ');
-  const separator = chalk.gray('  ' + '─'.repeat(50));
+  const prompt = chalk.cyan.bold('> ');
+  const separator = chalk.gray('  ' + '-'.repeat(50));
+
+  function cleanup(): void {
+    process.off('SIGINT', handleSigint);
+    process.off('unhandledRejection', rejectionHandler);
+    process.off('uncaughtException', exceptionHandler);
+    process.off('exit', exitHandler);
+  }
 
   try {
     for (;;) {
-      const input = await rl.question(prompt);
+      // Reset SIGINT counter before each prompt
+      sigintCount = 0;
+
+      // Ensure stdin is alive before asking
+      if (process.stdin.destroyed || !process.stdin.readable) {
+        console.error(chalk.red('\n  stdin destroyed, cannot continue.\n'));
+        break;
+      }
+      process.stdin.resume();
+      if (typeof process.stdin.ref === 'function') {
+        process.stdin.ref();
+      }
+
+      let input: string;
+      try {
+        input = await rlRef.rl.question(prompt);
+      } catch {
+        // readline failed — try to recreate
+        try {
+          rlRef.rl.close();
+        } catch {
+          /* ignore */
+        }
+
+        // Check if stdin itself is dead
+        if (process.stdin.destroyed || !process.stdin.readable) {
+          console.error(chalk.red('\n  stdin closed, exiting.\n'));
+          break;
+        }
+
+        console.error(chalk.yellow('\n  readline reset, retrying...\n'));
+        rlRef.rl = createRl();
+
+        try {
+          input = await rlRef.rl.question(prompt);
+        } catch {
+          console.error(chalk.red('\n  readline unrecoverable, exiting.\n'));
+          break;
+        }
+      }
+
       const trimmed = input.trim();
       if (!trimmed) {
         continue;
       }
 
-      // Handle slash commands
+      if (trimmed === '/help') {
+        console.log(chalk.gray('  /help | /model | /model <alias|id> | /history | /clear'));
+        console.log('');
+        continue;
+      }
+
       if (trimmed === '/clear') {
         session.clearHistory();
-        console.log(`  ${chalk.green('✓')} ${chalk.gray('对话已清除')}\n`);
+        console.log(`  ${chalk.green('ok')} ${chalk.gray('history cleared')}\n`);
+        continue;
+      }
+
+      if (trimmed === '/history') {
+        printRestoredHistory(session);
         continue;
       }
 
       if (trimmed === '/model' || trimmed === '/models') {
-        const picked = await pickModel(rl, activeModelId);
+        const picked = await pickModel(rlRef.rl, activeModelId);
         if (picked) {
           activeModelId = picked;
           session.setModel(picked);
-          console.log(`  ${chalk.green('✓')} 模型已切换: ${chalk.green(picked)}\n`);
+          console.log(`  ${chalk.green('ok')} model switched to ${chalk.green(picked)}\n`);
         } else {
-          console.log(`  ${chalk.gray('已取消')}\n`);
+          console.log(`  ${chalk.gray('cancelled')}\n`);
         }
         continue;
       }
 
-      // /model <alias|id> — quick switch without picker
       if (trimmed.startsWith('/model ')) {
         const arg = trimmed.slice('/model '.length).trim();
         if (!arg) {
-          console.log(`  ${chalk.yellow('用法: /model 或 /model <别名>')}\n`);
+          console.log(`  ${chalk.yellow('usage: /model <alias|id>')}\n`);
           continue;
         }
-        const found = MODEL_PRESETS.find((m) => m.alias === arg);
+        const found = MODEL_PRESETS.find((model) => model.alias === arg);
         const modelId = found ? found.id : arg;
         activeModelId = modelId;
         session.setModel(modelId);
-        console.log(`  ${chalk.green('✓')} 模型已切换: ${chalk.green(modelId)}\n`);
+        console.log(`  ${chalk.green('ok')} model switched to ${chalk.green(modelId)}\n`);
         continue;
       }
 
       console.log(separator);
+
+      // Mark that we're inside send() — SIGINT from child processes should be ignored
+      insideSend = true;
       try {
         await session.send(trimmed);
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error(`\n  ${chalk.red('✗')} ${chalk.red(msg)}`);
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`\n  ${chalk.red('error')} ${chalk.red(message)}`);
         if (error instanceof Error && error.cause) {
           console.error(`    ${chalk.gray((error.cause as Error).message ?? String(error.cause))}`);
         }
         console.error('');
+      } finally {
+        insideSend = false;
       }
     }
   } finally {
-    process.off('SIGINT', handleSigint);
-    rl.close();
+    cleanup();
+    rlRef.rl.close();
   }
 }

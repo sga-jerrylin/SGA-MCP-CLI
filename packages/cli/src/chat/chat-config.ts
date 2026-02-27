@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { SgaConfig } from '../config/sga-config';
 import type { ChatConfig } from './chat-types';
 
-const DEFAULT_CHAT_MODEL = 'anthropic/claude-sonnet-4.5';
+const DEFAULT_CHAT_MODEL = 'google/gemini-3-flash-preview';
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 
 function asString(value: unknown): string | undefined {

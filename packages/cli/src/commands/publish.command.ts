@@ -5,6 +5,7 @@ import { Writable } from 'node:stream';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import type { Package } from '@sga/shared';
+import { IntegrationTester } from '../agents/tester/integration-tester';
 import { loadChatConfig } from '../chat/chat-config';
 import { OpenRouterProvider } from '../llm/llm-client';
 import { getMarketUrl, getToken } from '../utils/auth';
@@ -41,6 +42,8 @@ interface PublishOptions {
   description?: string;
   enhance?: boolean;
 }
+
+type ManifestSchemaVersion = 'v2' | 'legacy';
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, '');
@@ -134,10 +137,53 @@ function readManifest(cwd: string = process.cwd()): PublishManifest {
   };
 }
 
-function resolvePublishPayload(
+function hasInputSchema(tool: ManifestTool): boolean {
+  if (!tool.inputSchema || typeof tool.inputSchema !== 'object') {
+    return false;
+  }
+  return Object.keys(tool.inputSchema).length > 0;
+}
+
+function mergeTools(
+  manualTools: ManifestTool[] | undefined,
+  discoveredTools: ManifestTool[]
+): ManifestTool[] {
+  if (!manualTools || manualTools.length === 0) {
+    return discoveredTools;
+  }
+
+  const discoveredByName = new Map(discoveredTools.map((tool) => [tool.name, tool]));
+  const merged = manualTools.map((tool) => {
+    const discovered = discoveredByName.get(tool.name);
+    if (!discovered) {
+      return tool;
+    }
+
+    return {
+      name: tool.name,
+      description: tool.description ?? discovered.description,
+      inputSchema: hasInputSchema(tool)
+        ? tool.inputSchema
+        : hasInputSchema(discovered)
+          ? discovered.inputSchema
+          : tool.inputSchema
+    };
+  });
+
+  for (const discovered of discoveredTools) {
+    if (!merged.some((tool) => tool.name === discovered.name)) {
+      merged.push(discovered);
+    }
+  }
+
+  return merged;
+}
+
+async function resolvePublishPayload(
   manifest: PublishManifest,
-  options: PublishOptions
-): {
+  options: PublishOptions,
+  cwd: string
+): Promise<{
   name: string;
   version: string;
   category: string;
@@ -145,7 +191,8 @@ function resolvePublishPayload(
   toolsCount?: number;
   tools?: ManifestTool[];
   credentials?: ManifestCredential[];
-} {
+  manifestSchemaVersion: ManifestSchemaVersion;
+}> {
   const name = options.name ?? manifest.name;
   const version = options.version ?? manifest.version;
   const category = options.category ?? manifest.category ?? 'other';
@@ -155,14 +202,66 @@ function resolvePublishPayload(
     throw new Error('name and version are required (from options or manifest.json)');
   }
 
+  const manualTools = manifest.tools;
+  const hasManualSchema =
+    Array.isArray(manualTools) && manualTools.length > 0 && manualTools.every(hasInputSchema);
+
+  let tools: ManifestTool[] | undefined = manualTools;
+  let manifestSchemaVersion: ManifestSchemaVersion = hasManualSchema ? 'v2' : 'legacy';
+
+  if (!hasManualSchema) {
+    try {
+      const tester = new IntegrationTester();
+      const baseUrl =
+        process.env.MCP_PUBLISH_BASE_URL ?? process.env.BASE_URL ?? 'http://localhost:8888';
+      const report = await tester.run({
+        dir: cwd,
+        baseUrl,
+        authEnv: {}
+      });
+
+      const discoveredTools = Array.isArray(report.tools)
+        ? report.tools
+            .filter((tool) => typeof tool.name === 'string' && tool.name.trim().length > 0)
+            .map((tool) => ({
+              name: tool.name.trim(),
+              ...(typeof tool.description === 'string' ? { description: tool.description } : {}),
+              ...(tool.inputSchema && typeof tool.inputSchema === 'object'
+                ? { inputSchema: tool.inputSchema }
+                : {})
+            }))
+        : [];
+
+      if (discoveredTools.length > 0) {
+        tools = mergeTools(manualTools, discoveredTools);
+        const hasExtractedSchema = tools.some(hasInputSchema);
+        manifestSchemaVersion = hasExtractedSchema ? 'v2' : 'legacy';
+      } else {
+        if (report.passed === false) {
+          const reason =
+            typeof report.error === 'string' && report.error.trim().length > 0
+              ? report.error
+              : 'unknown reason';
+          console.warn(chalk.yellow(`Tool schema extraction skipped: ${reason}`));
+        }
+        manifestSchemaVersion = 'legacy';
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(chalk.yellow(`Tool schema extraction skipped: ${message}`));
+      manifestSchemaVersion = 'legacy';
+    }
+  }
+
   return {
     name,
     version,
     category,
     description,
     toolsCount: manifest.toolsCount,
-    tools: manifest.tools,
-    credentials: manifest.credentials
+    tools,
+    credentials: manifest.credentials,
+    manifestSchemaVersion
   };
 }
 
@@ -351,7 +450,7 @@ export async function publishCommand(
 
   const marketUrl = normalizeBaseUrl(getMarketUrl());
   const manifest = readManifest(cwd);
-  const payload = resolvePublishPayload(manifest, options);
+  const payload = await resolvePublishPayload(manifest, options, cwd);
 
   const shouldEnhance = options.enhance !== false;
   if (shouldEnhance && payload.description.trim().length < 20) {
@@ -387,13 +486,14 @@ export async function publishCommand(
   const sha256 = createHash('sha256').update(tarball).digest('hex');
   const packageId = slugify(`${payload.name}-${payload.version}`);
 
-  const packageObj: Package = {
+  const packageObj = {
     id: packageId,
     name: payload.name,
     version: payload.version,
     description: payload.description || '',
     category: payload.category,
     toolCount: payload.toolsCount ?? 0,
+    manifestSchemaVersion: payload.manifestSchemaVersion,
     ...(payload.tools ? { tools: payload.tools } : {}),
     serverCount: 1,
     sha256,
@@ -401,7 +501,7 @@ export async function publishCommand(
     downloads: 0,
     publishedAt: new Date().toISOString(),
     ...(payload.credentials ? { credentials: payload.credentials } : {})
-  };
+  } as Package & { manifestSchemaVersion?: ManifestSchemaVersion };
 
   const form = new FormData();
   form.append(
