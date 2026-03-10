@@ -504,17 +504,45 @@ export async function startChatLoop(initialConfig: ChatConfig): Promise<void> {
 
       // Mark that we're inside send() — SIGINT from child processes should be ignored
       insideSend = true;
-      try {
-        await session.send(trimmed);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`\n  ${chalk.red('error')} ${chalk.red(message)}`);
-        if (error instanceof Error && error.cause) {
-          console.error(`    ${chalk.gray((error.cause as Error).message ?? String(error.cause))}`);
+
+      // --- Esc / Ctrl+C abort during AI response ---
+      const abortCtrl = new AbortController();
+      const wasRawSend = process.stdin.isRaw;
+      if (typeof process.stdin.setRawMode === 'function') {
+        process.stdin.setRawMode(true);
+      }
+      process.stdin.resume();
+
+      const onAbortKey = (data: Buffer) => {
+        const key = data.toString();
+        if ((key === '\x1b' || key === '\x03') && !abortCtrl.signal.aborted) {
+          abortCtrl.abort();
+          process.stdout.write(chalk.yellow('\n  ⚡ 已打断\n\n'));
         }
-        console.error('');
+      };
+      process.stdin.on('data', onAbortKey);
+
+      try {
+        await session.send(trimmed, abortCtrl.signal);
+      } catch (error) {
+        if (!abortCtrl.signal.aborted) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`\n  ${chalk.red('error')} ${chalk.red(message)}`);
+          if (error instanceof Error && error.cause) {
+            console.error(
+              `    ${chalk.gray((error.cause as Error).message ?? String(error.cause))}`
+            );
+          }
+          console.error('');
+        }
       } finally {
         insideSend = false;
+        process.stdin.removeListener('data', onAbortKey);
+        if (typeof process.stdin.setRawMode === 'function') {
+          process.stdin.setRawMode(wasRawSend ?? false);
+        }
+        process.stdin.resume();
+        rlRef.rl.resume();
       }
     }
   } finally {

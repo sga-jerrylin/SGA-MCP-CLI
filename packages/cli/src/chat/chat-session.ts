@@ -929,7 +929,7 @@ export class ChatSession {
     return this.history.length;
   }
 
-  public async send(userMessage: string): Promise<void> {
+  public async send(userMessage: string, signal?: AbortSignal): Promise<void> {
     // Build system prompt once per user message (not per LLM call in tool loop)
     this.cachedSystemPrompt = await buildSystemPrompt(
       this.config.workDir,
@@ -941,7 +941,11 @@ export class ChatSession {
 
     try {
       for (;;) {
-        const response = await this.callLlm();
+        if (signal?.aborted) {
+          break;
+        }
+
+        const response = await this.callLlm(signal);
 
         if (response.finish_reason === 'stop') {
           const assistantText = response.content.trim();
@@ -967,6 +971,7 @@ export class ChatSession {
         });
 
         for (const toolCall of toolCalls) {
+          if (signal?.aborted) break;
           const toolArgs = parseToolArguments(toolCall.function.arguments);
           this.writeToolStart(toolCall.function.name, toolArgs);
           const result = await this.executeTool(toolCall);
@@ -981,16 +986,18 @@ export class ChatSession {
     } catch (error) {
       // Roll back history to before this user message so next send() starts clean
       this.history.length = historySnapshot;
-      throw error;
+      if (!signal?.aborted) {
+        throw error;
+      }
     }
   }
 
-  private async callLlm() {
+  private async callLlm(signal?: AbortSignal) {
     const systemPrompt =
       this.cachedSystemPrompt ??
       (await buildSystemPrompt(this.config.workDir, this.history.length, this.tools.length));
     const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }, ...this.history];
-    return this.llm.chat(messages, this.tools);
+    return this.llm.chat(messages, this.tools, signal);
   }
 
   private async executeTool(toolCall: ToolCall): Promise<string> {

@@ -41,7 +41,11 @@ export interface ChatResponse {
 }
 
 export interface ChatCapableLlmProvider {
-  chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<ChatResponse>;
+  chat(
+    messages: ChatMessage[],
+    tools?: ToolDefinition[],
+    signal?: AbortSignal
+  ): Promise<ChatResponse>;
 }
 
 interface OpenRouterChatCompletionResponse {
@@ -120,7 +124,11 @@ export class OpenRouterProvider implements LlmProvider {
     this.name = name;
   }
 
-  public async chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<ChatResponse> {
+  public async chat(
+    messages: ChatMessage[],
+    tools?: ToolDefinition[],
+    signal?: AbortSignal
+  ): Promise<ChatResponse> {
     const endpoint = `${this.baseUrl.replace(/\/+$/, '')}/chat/completions`;
     const isMinimaxModel = this.model.toLowerCase().includes('minimax');
     const body = JSON.stringify({
@@ -139,9 +147,15 @@ export class OpenRouterProvider implements LlmProvider {
     let lastError: Error | undefined;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
+      // Bail out early if already aborted before retrying
+      if (signal?.aborted) {
+        throw new Error('Request aborted');
+      }
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 120_000);
+        // Propagate external abort signal into the internal controller
+        signal?.addEventListener('abort', () => controller.abort(), { once: true });
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
