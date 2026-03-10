@@ -38,7 +38,7 @@ const MODEL_PRESETS: Array<{ alias: string; id: string; label: string; provider:
     { alias: 'glm-5', id: 'glm-5', label: 'GLM-5 智谱', provider: 'coding-plan' },
     { alias: 'glm-4.7', id: 'glm-4.7', label: 'GLM-4.7 智谱', provider: 'coding-plan' },
     { alias: 'kimi-k2.5', id: 'kimi-k2.5', label: 'Kimi K2.5', provider: 'coding-plan' },
-    { alias: 'minimax', id: 'minimax-m2.5', label: 'MiniMax M2.5', provider: 'coding-plan' }
+    { alias: 'minimax', id: 'MiniMax-M2.5', label: 'MiniMax M2.5', provider: 'coding-plan' }
   ];
 
 function createRl(): readline.Interface {

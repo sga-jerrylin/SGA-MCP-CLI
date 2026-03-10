@@ -9,7 +9,7 @@ export const CODING_PLAN_MODEL_IDS = new Set([
   'glm-5',
   'glm-4.7',
   'kimi-k2.5',
-  'minimax-m2.5'
+  'MiniMax-M2.5'
 ]);
 
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';

@@ -16,7 +16,7 @@ const MODEL_IDS = [
   'glm-5',
   'glm-4.7',
   'kimi-k2.5',
-  'minimax-m2.5'
+  'MiniMax-M2.5'
 ] as const;
 
 const MODEL_ID_SET = new Set<string>(MODEL_IDS);
