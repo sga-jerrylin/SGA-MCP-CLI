@@ -2,13 +2,44 @@ import * as readline from 'node:readline/promises';
 import chalk from 'chalk';
 
 import { SgaConfig } from '../config/sga-config';
+import {
+  getApiKeyConfigKey,
+  getBaseUrlForProvider,
+  getKeyHintText,
+  getKeyPromptText,
+  getProviderForModel,
+  type ModelProvider
+} from '../llm/provider-routing';
 import type { ChatConfig } from './chat-types';
 import { ChatSession } from './chat-session';
 
-const MODEL_PRESETS: Array<{ alias: string; id: string; label: string }> = [
-  { alias: 'gemini-flash', id: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash' },
-  { alias: 'minimax', id: 'minimax/minimax-m2.5', label: 'MiniMax M2.5' }
-];
+const MODEL_PRESETS: Array<{ alias: string; id: string; label: string; provider: ModelProvider }> =
+  [
+    {
+      alias: 'gemini-flash',
+      id: 'google/gemini-3-flash-preview',
+      label: 'Gemini 3 Flash',
+      provider: 'openrouter'
+    },
+    {
+      alias: 'qwen3-coder',
+      id: 'qwen3-coder-plus',
+      label: 'Qwen3 Coder+',
+      provider: 'coding-plan'
+    },
+    {
+      alias: 'qwen3-next',
+      id: 'qwen3-coder-next',
+      label: 'Qwen3 Coder Next',
+      provider: 'coding-plan'
+    },
+    { alias: 'qwen3-max', id: 'qwen3-max', label: 'Qwen3 Max', provider: 'coding-plan' },
+    { alias: 'qwen3.5', id: 'qwen3.5-plus', label: 'Qwen3.5 Plus', provider: 'coding-plan' },
+    { alias: 'glm-5', id: 'glm-5', label: 'GLM-5 智谱', provider: 'coding-plan' },
+    { alias: 'glm-4.7', id: 'glm-4.7', label: 'GLM-4.7 智谱', provider: 'coding-plan' },
+    { alias: 'kimi-k2.5', id: 'kimi-k2.5', label: 'Kimi K2.5', provider: 'coding-plan' },
+    { alias: 'minimax', id: 'minimax-m2.5', label: 'MiniMax M2.5', provider: 'coding-plan' }
+  ];
 
 function createRl(): readline.Interface {
   // Ensure stdin is in flowing mode and referenced so the event loop stays alive
@@ -51,9 +82,12 @@ function pickModel(rl: readline.Interface, currentModelId: string): Promise<stri
         const alias = selected ? chalk.cyan.bold(item.alias) : chalk.white(item.alias);
         const label = selected ? chalk.white(item.label) : chalk.gray(item.label);
         const id = chalk.gray.dim(item.id);
-        stdout.write(`  ${marker} ${alias.padEnd(16)} ${label.padEnd(18)} ${id}\n`);
+        const tag = item.provider === 'coding-plan' ? chalk.yellow('[国内]') : chalk.blue('[海外]');
+        stdout.write(
+          `  ${marker} ${alias.padEnd(16)} ${label.padEnd(20)} ${id.padEnd(32)} ${tag}\n`
+        );
       }
-      stdout.write(`  ${chalk.gray('-'.repeat(72))}\n`);
+      stdout.write(`  ${chalk.gray('-'.repeat(78))}\n`);
     };
 
     const redraw = () => {
@@ -131,11 +165,26 @@ function printBanner(config: ChatConfig): void {
     chalk.white('  AI-powered MCP Server Generator') + '  ·  ' + chalk.yellow('by SGA 中文社区')
   );
   console.log(chalk.gray('  ' + '─'.repeat(55)));
-  console.log('  ' + chalk.gray('Model') + '  ' + chalk.green(config.model));
-  const keyStatus = config.apiKey
-    ? chalk.green('sk-or-...' + config.apiKey.slice(-4))
-    : chalk.red('未配置 (mcp-claw config set-env --key YOUR_KEY)');
-  console.log('  ' + chalk.gray('Key') + '    ' + keyStatus);
+
+  const providerLabel =
+    config.provider === 'coding-plan'
+      ? chalk.yellow('国内 · Coding Plan')
+      : chalk.blue('海外 · OpenRouter');
+  console.log('  ' + chalk.gray('Provider') + ' ' + providerLabel);
+  console.log('  ' + chalk.gray('Model   ') + ' ' + chalk.green(config.model));
+
+  let keyStatus: string;
+  if (config.apiKey) {
+    const prefix = config.provider === 'coding-plan' ? 'sk-sp-' : 'sk-or-';
+    keyStatus = chalk.green(prefix + '...' + config.apiKey.slice(-4));
+  } else {
+    const hint =
+      config.provider === 'coding-plan'
+        ? 'config set coding-plan.apiKey YOUR_KEY'
+        : 'config set openrouter.apiKey YOUR_KEY';
+    keyStatus = chalk.red('未配置 (mcp-claw ' + hint + ')');
+  }
+  console.log('  ' + chalk.gray('Key     ') + ' ' + keyStatus);
   console.log(chalk.gray('  /help · /model · /history · /clear · Ctrl+C 退出'));
   console.log('');
 }
@@ -175,6 +224,60 @@ function printRestoredHistory(session: ChatSession): void {
 
 let activeModelId = '';
 
+/**
+ * Switch to a new model, prompting for API key if the provider changes.
+ * Returns the updated ChatConfig on success, or null if the user cancelled.
+ */
+async function switchModel(
+  modelId: string,
+  config: ChatConfig,
+  session: ChatSession,
+  rl: readline.Interface
+): Promise<ChatConfig | null> {
+  const targetProvider = getProviderForModel(modelId);
+  let newApiKey = config.apiKey;
+  let newBaseUrl = config.baseUrl;
+
+  if (targetProvider !== config.provider) {
+    const switchConf = new SgaConfig();
+    const stored = switchConf.get(getApiKeyConfigKey(targetProvider));
+    const existing = typeof stored === 'string' ? stored.trim() : '';
+
+    if (existing) {
+      newApiKey = existing;
+    } else {
+      console.log('');
+      console.log(chalk.gray(getKeyHintText(targetProvider)));
+      console.log('');
+      let k = '';
+      try {
+        k = (await rl.question(getKeyPromptText(targetProvider))).trim();
+      } catch {
+        k = '';
+      }
+      if (!k) {
+        console.log(chalk.yellow('  未输入 key，取消切换。'));
+        return null;
+      }
+      switchConf.set(getApiKeyConfigKey(targetProvider), k);
+      newApiKey = k;
+    }
+    newBaseUrl = getBaseUrlForProvider(targetProvider);
+  }
+
+  const saveConf = new SgaConfig();
+  saveConf.set('model.coder', modelId);
+  session.setModel(modelId, newApiKey, newBaseUrl);
+
+  return {
+    ...config,
+    model: modelId,
+    apiKey: newApiKey,
+    baseUrl: newBaseUrl,
+    provider: targetProvider
+  };
+}
+
 export async function startChatLoop(initialConfig: ChatConfig): Promise<void> {
   let config = initialConfig;
   const rlRef = { rl: createRl() };
@@ -202,27 +305,51 @@ export async function startChatLoop(initialConfig: ChatConfig): Promise<void> {
   process.on('exit', exitHandler);
 
   if (!config.apiKey) {
-    console.log(chalk.yellow('\n  No API key configured.'));
-    console.log(chalk.gray('  Get one free at: https://openrouter.ai/settings/keys'));
+    console.log(chalk.yellow('\n  首次使用 — 请先选择模型（系统自动匹配 API 提供商）\n'));
+
+    const pickedFirst = await pickModel(rlRef.rl, config.model);
+    if (!pickedFirst) {
+      console.log(chalk.red('  未选择模型，请重新运行。'));
+      rlRef.rl.close();
+      cleanup();
+      return;
+    }
+
+    const firstProvider = getProviderForModel(pickedFirst);
+    const firstBaseUrl = getBaseUrlForProvider(firstProvider);
+
     console.log('');
-    let key = '';
+    console.log(chalk.gray(getKeyHintText(firstProvider)));
+    console.log('');
+
+    let firstKey = '';
     try {
-      key = (await rlRef.rl.question('  Enter OpenRouter API Key (sk-or-...): ')).trim();
+      firstKey = (await rlRef.rl.question(getKeyPromptText(firstProvider))).trim();
     } catch {
       rlRef.rl.close();
       cleanup();
       return;
     }
-    if (!key) {
-      console.log(chalk.red('  API key is required. Exiting.'));
+
+    if (!firstKey) {
+      console.log(chalk.red('  API key 不能为空，请重新运行。'));
       rlRef.rl.close();
       cleanup();
       return;
     }
-    const sgaConfig = new SgaConfig();
-    sgaConfig.set('openrouter.apiKey', key);
-    config = { ...config, apiKey: key };
-    console.log(chalk.green('  Saved to ~/.sga/config.yaml\n'));
+
+    const sgaConfigFirst = new SgaConfig();
+    sgaConfigFirst.set(getApiKeyConfigKey(firstProvider), firstKey);
+    sgaConfigFirst.set('model.coder', pickedFirst);
+
+    config = {
+      ...config,
+      model: pickedFirst,
+      apiKey: firstKey,
+      baseUrl: firstBaseUrl,
+      provider: firstProvider
+    };
+    console.log(chalk.green('  已保存到 ~/.sga/config.yaml\n'));
   }
   const session = new ChatSession(config);
   activeModelId = config.model;
@@ -340,9 +467,14 @@ export async function startChatLoop(initialConfig: ChatConfig): Promise<void> {
       if (trimmed === '/model' || trimmed === '/models') {
         const picked = await pickModel(rlRef.rl, activeModelId);
         if (picked) {
-          activeModelId = picked;
-          session.setModel(picked);
-          console.log(`  ${chalk.green('ok')} model switched to ${chalk.green(picked)}\n`);
+          const switchResult = await switchModel(picked, config, session, rlRef.rl);
+          if (switchResult) {
+            config = switchResult;
+            activeModelId = picked;
+            console.log(`  ${chalk.green('ok')} model switched to ${chalk.green(picked)}\n`);
+          } else {
+            console.log(`  ${chalk.gray('cancelled')}\n`);
+          }
         } else {
           console.log(`  ${chalk.gray('cancelled')}\n`);
         }
@@ -355,11 +487,16 @@ export async function startChatLoop(initialConfig: ChatConfig): Promise<void> {
           console.log(`  ${chalk.yellow('usage: /model <alias|id>')}\n`);
           continue;
         }
-        const found = MODEL_PRESETS.find((model) => model.alias === arg);
+        const found = MODEL_PRESETS.find((m) => m.alias === arg);
         const modelId = found ? found.id : arg;
-        activeModelId = modelId;
-        session.setModel(modelId);
-        console.log(`  ${chalk.green('ok')} model switched to ${chalk.green(modelId)}\n`);
+        const switchResult = await switchModel(modelId, config, session, rlRef.rl);
+        if (switchResult) {
+          config = switchResult;
+          activeModelId = modelId;
+          console.log(`  ${chalk.green('ok')} model switched to ${chalk.green(modelId)}\n`);
+        } else {
+          console.log(`  ${chalk.gray('cancelled')}\n`);
+        }
         continue;
       }
 

@@ -24,7 +24,8 @@ describe('ChatSession', () => {
     model: 'anthropic/claude-sonnet-4.5',
     apiKey: 'test-key',
     baseUrl: 'https://openrouter.ai/api/v1',
-    workDir: process.cwd()
+    workDir: process.cwd(),
+    provider: 'openrouter'
   };
 
   function writtenText(write: jest.Mock): string {

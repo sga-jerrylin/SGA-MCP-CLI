@@ -2049,13 +2049,13 @@ export class ChatSession {
     return rounds.slice(-maxRounds);
   }
 
-  /** Switch the LLM model at runtime. Returns the new model name. */
-  public setModel(model: string): string {
+  /** Switch the LLM model at runtime. Optionally override apiKey and baseUrl for provider switches. */
+  public setModel(model: string, apiKey?: string, baseUrl?: string): string {
     this.llm = new OpenRouterProvider(
       'openrouter-chat',
       model,
-      this.config.apiKey,
-      this.config.baseUrl
+      apiKey ?? this.config.apiKey,
+      baseUrl ?? this.config.baseUrl
     );
     this.cachedSystemPrompt = undefined; // rebuild on next send
     return model;

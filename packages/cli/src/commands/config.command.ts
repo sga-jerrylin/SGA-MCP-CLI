@@ -5,11 +5,21 @@ import chalk from 'chalk';
 
 import { DEFAULT_CONFIG_PATH, SgaConfig } from '../config/sga-config';
 import { OpenRouterProvider } from '../llm/llm-client';
+import { getBaseUrlForProvider, getProviderForModel } from '../llm/provider-routing';
 
-const MODEL_IDS = ['google/gemini-3-flash-preview', 'minimax/minimax-m2.5'] as const;
+const MODEL_IDS = [
+  'google/gemini-3-flash-preview',
+  'qwen3-coder-plus',
+  'qwen3-coder-next',
+  'qwen3-max',
+  'qwen3.5-plus',
+  'glm-5',
+  'glm-4.7',
+  'kimi-k2.5',
+  'minimax-m2.5'
+] as const;
 
 const MODEL_ID_SET = new Set<string>(MODEL_IDS);
-const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 
 type Logger = Pick<Console, 'log' | 'error'>;
 
@@ -24,7 +34,6 @@ interface ConfigValues {
   coderModel: string;
   agentModel: string;
   apiKey: string;
-  baseUrl: string;
 }
 
 interface SetConfigOptions {
@@ -91,8 +100,7 @@ function currentConfig(state: EnvFileState): ConfigValues {
     parserModel: state.values.get('LLM_PARSER_MODEL') ?? '',
     coderModel: state.values.get('LLM_CODER_MODEL') ?? '',
     agentModel: state.values.get('LLM_AGENT_MODEL') ?? '',
-    apiKey: state.values.get('OPENROUTER_API_KEY') ?? '',
-    baseUrl: state.values.get('OPENROUTER_BASE_URL') ?? DEFAULT_BASE_URL
+    apiKey: state.values.get('OPENROUTER_API_KEY') ?? state.values.get('CODING_PLAN_API_KEY') ?? ''
   };
 }
 
@@ -127,11 +135,10 @@ export function showConfig(logger: Logger = console, cwd = process.cwd()): void 
   const config = currentConfig(state);
 
   const rows: Array<[string, string]> = [
-    ['OPENROUTER_BASE_URL', config.baseUrl],
     ['LLM_PARSER_MODEL', config.parserModel],
     ['LLM_CODER_MODEL', config.coderModel],
     ['LLM_AGENT_MODEL', config.agentModel],
-    ['OPENROUTER_API_KEY', config.apiKey]
+    ['OPENROUTER_API_KEY / CODING_PLAN_API_KEY', config.apiKey]
   ];
 
   const keyWidth = Math.max(...rows.map(([key]) => key.length));
@@ -196,7 +203,11 @@ export function setConfig(
   // Also persist to ~/.sga/config.yaml so global `mcp-claw` works without .env
   const globalConfig = new SgaConfig();
   if (typeof options.key === 'string') {
-    globalConfig.set('openrouter.apiKey', options.key);
+    // Determine which yaml key to write based on the currently selected model
+    const currentModel = (globalConfig.get('model.coder') as string | undefined) ?? '';
+    const modelProv = getProviderForModel(currentModel);
+    const yamlKey = modelProv === 'coding-plan' ? 'coding-plan.apiKey' : 'openrouter.apiKey';
+    globalConfig.set(yamlKey, options.key);
   }
   if (typeof options.parser === 'string') {
     globalConfig.set('model.parser', options.parser);
@@ -225,21 +236,22 @@ export async function testConfig(logger: Logger = console, cwd = process.cwd()):
   const state = parseEnvState(envPath);
   const config = currentConfig(state);
 
-  const model = config.parserModel || 'anthropic/claude-haiku-4.5';
+  const model = config.parserModel || 'google/gemini-3-flash-preview';
   const apiKey = config.apiKey;
-  const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
 
   if (!apiKey) {
-    logger.error(chalk.red('Connection failed: OPENROUTER_API_KEY is empty'));
+    logger.error(chalk.red('Connection failed: API key is empty'));
     process.exitCode = 1;
     return;
   }
 
-  const provider = new OpenRouterProvider('openrouter-test', model, apiKey, baseUrl);
+  const modelProvider = getProviderForModel(model);
+  const baseUrl = getBaseUrlForProvider(modelProvider);
+  const provider = new OpenRouterProvider('test', model, apiKey, baseUrl);
 
   try {
     await provider.complete('Reply with exactly: pong');
-    logger.log(chalk.green(`OpenRouter reachable, model: ${model}`));
+    logger.log(chalk.green(`LLM reachable, model: ${model}`));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error(chalk.red(`Connection failed: ${message}`));
